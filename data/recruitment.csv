@@ -1,0 +1,26 @@
+candidate_id,position,department,applied_date,stage,source,interview_date,offer_date,hired_date
+C001,Software Engineer,Engineering,2025-01-05,Rejected,LinkedIn,2025-01-20,,
+C002,Software Engineer,Engineering,2025-01-08,Hired,Referral,2025-01-22,2025-02-01,2025-02-10
+C003,Data Analyst,Data,2025-01-10,Interview,Job Board,2025-01-28,,
+C004,Product Manager,Product,2025-01-12,Offer,LinkedIn,2025-01-25,2025-02-05,
+C005,HR Specialist,People,2025-01-15,Screening,Referral,,,
+C006,Software Engineer,Engineering,2025-01-18,Hired,University,2025-02-01,2025-02-08,2025-02-15
+C007,Data Analyst,Data,2025-01-20,Rejected,LinkedIn,2025-02-05,,
+C008,DevOps Engineer,Engineering,2025-01-22,Interview,Job Board,2025-02-10,,
+C009,Product Manager,Product,2025-01-25,Hired,Internal,2025-02-12,2025-02-18,2025-03-01
+C010,UX Designer,Design,2025-02-01,Applied,LinkedIn,,,
+C011,Software Engineer,Engineering,2025-02-03,Screening,Referral,,,
+C012,Data Analyst,Data,2025-02-05,Hired,Job Board,2025-02-18,2025-02-25,2025-03-05
+C013,HR Specialist,People,2025-02-08,Rejected,LinkedIn,2025-02-20,,
+C014,DevOps Engineer,Engineering,2025-02-10,Offer,Referral,2025-02-22,2025-03-01,
+C015,UX Designer,Design,2025-02-12,Interview,Portfolio Site,2025-02-28,,
+C016,Software Engineer,Engineering,2025-02-15,Hired,LinkedIn,2025-03-01,2025-03-08,2025-03-12
+C017,Product Manager,Product,2025-02-18,Screening,Job Board,,,
+C018,Data Analyst,Data,2025-02-20,Applied,Referral,,,
+C019,HR Specialist,People,2025-02-22,Interview,Job Board,2025-03-05,,
+C020,DevOps Engineer,Engineering,2025-02-25,Rejected,LinkedIn,2025-03-08,,
+C021,Software Engineer,Engineering,2025-03-01,Hired,Referral,2025-03-10,2025-03-15,2025-03-20
+C022,UX Designer,Design,2025-03-03,Offer,LinkedIn,2025-03-12,2025-03-18,
+C023,Data Analyst,Data,2025-03-05,Interview,University,2025-03-15,,
+C024,Product Manager,Product,2025-03-08,Hired,LinkedIn,2025-03-18,2025-03-22,2025-04-01
+C025,Software Engineer,Engineering,2025-03-10,Screening,Job Board,,,
