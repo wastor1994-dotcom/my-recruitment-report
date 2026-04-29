@@ -186,12 +186,12 @@ export function RMRequestsTable() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">RM / สถานะอัตราคงค้าง</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-2xl font-bold text-slate-900">RM / สถานะอัตราคงค้าง</h1>
+          <p className="mt-1 text-sm text-slate-600">
             หลังผู้ขอกรอกข้อมูลแล้ว ระบบจะขึ้นรายการให้ RM และเจ้าหน้าที่สรรหาเข้ามาระบุสถานะ
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm text-slate-300">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"
             checked={onlyPending}
@@ -202,28 +202,28 @@ export function RMRequestsTable() {
       </div>
 
       {!loading && !error && monthlySummary.length > 0 && (
-        <div className="mb-6 grid gap-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-4 sm:grid-cols-3">
+        <div className="mb-6 grid gap-4 rounded-xl border border-rose-200 bg-white p-4 shadow-sm sm:grid-cols-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               เดือนล่าสุด
             </p>
-            <p className="mt-1 text-lg font-semibold text-white">
+            <p className="mt-1 text-lg font-semibold text-slate-900">
               {monthlySummary[monthlySummary.length - 1]?.month}
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               คงค้าง (รวม)
             </p>
-            <p className="mt-1 text-lg font-semibold text-yellow-300">
+            <p className="mt-1 text-lg font-semibold text-amber-600">
               {monthlySummary.reduce((sum, m) => sum + m.backlog, 0)}
             </p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               เกิน 15 วัน (รวม)
             </p>
-            <p className="mt-1 text-lg font-semibold text-red-300">
+            <p className="mt-1 text-lg font-semibold text-red-600">
               {monthlySummary.reduce((sum, m) => sum + m.over15, 0)}
             </p>
           </div>
@@ -231,21 +231,21 @@ export function RMRequestsTable() {
       )}
 
       {loading && (
-        <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-6 text-slate-300">
+        <div className="rounded-xl border border-rose-200 bg-white p-6 text-slate-700">
           กำลังโหลดข้อมูล…
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-red-200">
+        <div className="rounded-xl border border-red-300 bg-red-50 p-6 text-red-700">
           {error}
         </div>
       )}
 
       {!loading && !error && (
-        <div className="overflow-auto rounded-xl border border-slate-700/60 bg-slate-900/30">
+        <div className="overflow-auto rounded-xl border border-rose-200 bg-white shadow-sm">
           <table className="min-w-[1200px] border-separate border-spacing-0">
-            <thead className="sticky top-0 bg-slate-950/90 text-xs uppercase text-slate-400">
+            <thead className="sticky top-0 bg-rose-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-3 py-3 text-left">ID</th>
                 <th className="px-3 py-3 text-left">วันที่แจ้ง</th>
@@ -263,7 +263,7 @@ export function RMRequestsTable() {
                 <th className="px-3 py-3 text-left">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="text-sm text-slate-200">
+            <tbody className="text-sm text-slate-700">
               {visibleItems.map((r) => {
                 const backlogDays = computeBacklogDays(r.date_notified);
                 const backlogRed = backlogDays > 15;
@@ -272,17 +272,17 @@ export function RMRequestsTable() {
                     ? `ทดแทน ${r.replacement_count ?? 0}`
                     : `ใหม่ ${r.new_count ?? 0}`;
                 return (
-                  <tr key={r.id} className="border-t border-slate-800/80">
+                  <tr key={r.id} className="border-t border-rose-100">
                     <td className="px-3 py-3 font-mono text-xs">{shortId(r.id)}</td>
                     <td className="px-3 py-3">{r.date_notified}</td>
-                    <td className={`px-3 py-3 ${backlogRed ? "text-red-300 font-semibold" : ""}`}>
+                    <td className={`px-3 py-3 ${backlogRed ? "text-red-600 font-semibold" : ""}`}>
                       {backlogDays}
                     </td>
                     <td className="px-3 py-3">{r.unit}</td>
                     <td className="px-3 py-3">{r.position}</td>
                     <td className="px-3 py-3">
                       <select
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                        className="w-full rounded-lg border border-rose-200 bg-white px-2 py-1 text-sm text-slate-800"
                         value={draft[r.id]?.source ?? ""}
                         onChange={(e) =>
                           setDraft((prev) => ({
@@ -330,14 +330,14 @@ export function RMRequestsTable() {
                               href={url ?? "#"}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-teal-300 hover:underline"
+                              className="text-rose-600 hover:underline"
                             >
                               {f.file_name}
                             </a>
                           );
                         })}
                         {(r.files ?? []).length > 3 && (
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-slate-500">
                             +{(r.files ?? []).length - 3} more
                           </span>
                         )}
@@ -345,7 +345,7 @@ export function RMRequestsTable() {
                     </td>
                     <td className="px-3 py-3">
                       <select
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                        className="w-full rounded-lg border border-rose-200 bg-white px-2 py-1 text-sm text-slate-800"
                         value={draft[r.id]?.status ?? ""}
                         onChange={(e) =>
                           setDraft((prev) => ({
@@ -368,7 +368,7 @@ export function RMRequestsTable() {
                     </td>
                     <td className="px-3 py-3">
                       <select
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                        className="w-full rounded-lg border border-rose-200 bg-white px-2 py-1 text-sm text-slate-800"
                         value={draft[r.id]?.responsible_person ?? ""}
                         onChange={(e) =>
                           setDraft((prev) => ({
@@ -394,7 +394,7 @@ export function RMRequestsTable() {
                       <button
                         type="button"
                         onClick={() => onSave(r.id)}
-                        className="rounded-lg bg-teal-500 px-3 py-2 text-sm font-semibold text-black hover:bg-teal-400"
+                        className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500"
                       >
                         บันทึก
                       </button>
@@ -404,7 +404,7 @@ export function RMRequestsTable() {
               })}
               {!visibleItems.length && (
                 <tr>
-                  <td colSpan={14} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={14} className="px-3 py-8 text-center text-slate-500">
                     ไม่มีรายการที่ต้องจัดการ
                   </td>
                 </tr>

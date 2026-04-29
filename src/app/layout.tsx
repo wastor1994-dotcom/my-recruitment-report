@@ -21,17 +21,17 @@ export default function RootLayout({
   return (
     <html lang="th" className={inter.variable}>
       <body className="font-sans">
-        <div className="border-b border-slate-800/80 bg-slate-950/50">
+        <div className="border-b border-rose-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300 ring-1 ring-teal-500/30">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-rose-100 text-rose-600 ring-1 ring-rose-200">
                 📊
               </span>
               <div>
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-semibold text-slate-900">
                   Recruitment Report
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-500">
                   Dashboard + แบบฟอร์มขออัตรา
                 </div>
               </div>
@@ -39,19 +39,19 @@ export default function RootLayout({
             <nav className="flex items-center gap-2 text-sm">
               <Link
                 href="/"
-                className="rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                className="rounded-lg px-3 py-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
               >
                 Dashboard
               </Link>
               <Link
                 href="/request"
-                className="rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                className="rounded-lg px-3 py-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
               >
                 แบบฟอร์มขออัตรา
               </Link>
               <Link
                 href="/rm"
-                className="rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800/50 hover:text-white"
+                className="rounded-lg px-3 py-2 text-slate-600 hover:bg-rose-50 hover:text-rose-700"
               >
                 RM / สถานะ
               </Link>

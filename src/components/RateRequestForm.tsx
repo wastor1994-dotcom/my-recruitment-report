@@ -55,7 +55,7 @@ export function RateRequestForm() {
   }, [date_notified]);
 
   const backlogClass =
-    backlogDays > 15 ? "text-red-300 font-semibold" : "text-slate-300";
+    backlogDays > 15 ? "text-red-600 font-semibold" : "text-slate-600";
 
   function validate(values: Partial<RateRequestFormValues>) {
     const errors: Record<string, string> = {};
@@ -209,9 +209,9 @@ export function RateRequestForm() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 rounded-xl border border-slate-700/60 bg-slate-900/40 p-6">
-        <h1 className="text-2xl font-bold text-white">แบบฟอร์มขออัตราที่ต้องสรรหา</h1>
-        <p className="mt-2 text-sm text-slate-400">
+      <div className="mb-6 rounded-xl border border-rose-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">แบบฟอร์มขออัตราที่ต้องสรรหา</h1>
+        <p className="mt-2 text-sm text-slate-600">
           กรอกข้อมูลให้ครบตามเงื่อนไข แล้วแนบไฟล์ PDF เพื่อบันทึกเป็น “อัตราคงค้าง” ให้ RM จัดการสถานะต่อ
         </p>
         <div className={`mt-3 text-sm ${backlogClass}`}>
@@ -222,33 +222,33 @@ export function RateRequestForm() {
       <form onSubmit={onSubmit} className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">วันที่แจ้ง *</span>
+            <span className="mb-1 block text-sm text-slate-700">วันที่แจ้ง *</span>
             <input
               type="date"
               value={date_notified}
               onChange={(e) => setDateNotified(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">วันที่ทำงานสุดท้าย</span>
+            <span className="mb-1 block text-sm text-slate-700">วันที่ทำงานสุดท้าย</span>
             <input
               type="date"
               value={last_work_date}
               onChange={(e) => setLastWorkDate(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
             />
           </label>
 
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">วันที่ต้องการ *</span>
+            <span className="mb-1 block text-sm text-slate-700">วันที่ต้องการ *</span>
             <input
               type="date"
               value={desired_date}
               onChange={(e) => setDesiredDate(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             />
           </label>
@@ -256,7 +256,7 @@ export function RateRequestForm() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">อัตรา *</span>
+            <span className="mb-1 block text-sm text-slate-700">อัตรา *</span>
             <select
               value={request_type_ui}
               onChange={(e) => {
@@ -266,7 +266,7 @@ export function RateRequestForm() {
                 if (v === "replacement") setNewCount("");
                 if (v === "new") setReplacementCount("");
               }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             >
               <option value="replacement">ทดแทน</option>
@@ -276,7 +276,7 @@ export function RateRequestForm() {
 
           {request_type_ui === "replacement" ? (
             <label className="block md:col-span-2">
-              <span className="mb-1 block text-sm text-slate-300">
+              <span className="mb-1 block text-sm text-slate-700">
                 จำนวนอัตราทดแทน *
               </span>
               <input
@@ -289,12 +289,12 @@ export function RateRequestForm() {
                   const v = e.target.value === "" ? "" : Number(e.target.value);
                   setReplacementCount(v);
                 }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               />
             </label>
           ) : (
             <label className="block md:col-span-2">
-              <span className="mb-1 block text-sm text-slate-300">
+              <span className="mb-1 block text-sm text-slate-700">
                 จำนวนอัตราใหม่ *
               </span>
               <input
@@ -307,7 +307,7 @@ export function RateRequestForm() {
                   const v = e.target.value === "" ? "" : Number(e.target.value);
                   setNewCount(v);
                 }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               />
             </label>
           )}
@@ -315,31 +315,31 @@ export function RateRequestForm() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">รหัสไซต์</span>
+            <span className="mb-1 block text-sm text-slate-700">รหัสไซต์</span>
             <input
               value={site_code}
               onChange={(e) => setSiteCode(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">เลขที่ใบขอ</span>
+            <span className="mb-1 block text-sm text-slate-700">เลขที่ใบขอ</span>
             <input
               value={request_no}
               onChange={(e) => setRequestNo(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
             />
           </label>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">หน่วยงาน *</span>
+            <span className="mb-1 block text-sm text-slate-700">หน่วยงาน *</span>
             <select
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             >
               <option value="">-- เลือกหน่วยงาน --</option>
@@ -353,16 +353,16 @@ export function RateRequestForm() {
 
           <div className="md:col-span-2 flex flex-col gap-2 text-sm">
             <label className="block">
-              <span className="mb-1 block text-xs text-slate-400">เพิ่มรายการหน่วยงาน</span>
+              <span className="mb-1 block text-xs text-slate-500">เพิ่มรายการหน่วยงาน</span>
               <div className="flex gap-2">
                 <input
                   value={unitNew}
                   onChange={(e) => setUnitNew(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
                 />
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-600"
+                  className="rounded-lg bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-200"
                   onClick={() => {
                     const v = unitNew.trim();
                     if (!v) return;
@@ -380,13 +380,13 @@ export function RateRequestForm() {
           </div>
 
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">
+              <span className="mb-1 block text-sm text-slate-700">
               ตำแหน่ง *
             </span>
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             >
               <option value="">-- เลือกตำแหน่ง --</option>
@@ -400,16 +400,16 @@ export function RateRequestForm() {
 
           <div className="md:col-span-2 flex flex-col gap-2 text-sm">
             <label className="block">
-              <span className="mb-1 block text-xs text-slate-400">เพิ่มรายการตำแหน่ง</span>
+              <span className="mb-1 block text-xs text-slate-500">เพิ่มรายการตำแหน่ง</span>
               <div className="flex gap-2">
                 <input
                   value={positionNew}
                   onChange={(e) => setPositionNew(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
                 />
                 <button
                   type="button"
-                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-600"
+                  className="rounded-lg bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-200"
                   onClick={() => {
                     const v = positionNew.trim();
                     if (!v) return;
@@ -431,21 +431,21 @@ export function RateRequestForm() {
           <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-4">
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               <label className="block md:col-span-2">
-                <span className="mb-1 block text-sm text-slate-300">ชื่อพนักงานลาออก *</span>
+                <span className="mb-1 block text-sm text-slate-700">ชื่อพนักงานลาออก *</span>
                 <input
                   value={employee_left_name}
                   onChange={(e) => setEmployeeLeftName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
                   required
                 />
               </label>
 
               <label className="block md:col-span-2">
-                <span className="mb-1 block text-sm text-slate-300">สาเหตุการลาออก *</span>
+                <span className="mb-1 block text-sm text-slate-700">สาเหตุการลาออก *</span>
                 <input
                   value={left_reason}
                   onChange={(e) => setLeftReason(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
                   required
                 />
               </label>
@@ -455,7 +455,7 @@ export function RateRequestForm() {
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">อัตราเงินเดือน * </span>
+            <span className="mb-1 block text-sm text-slate-700">อัตราเงินเดือน * </span>
             <input
               type="number"
               min={0}
@@ -465,18 +465,18 @@ export function RateRequestForm() {
                 const v = e.target.value === "" ? "" : Number(e.target.value);
                 setSalaryRate(v);
               }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
               required
             />
           </label>
         </div>
 
         <label className="block">
-          <span className="mb-1 block text-sm text-slate-300">ชื่อเจ้าหน้าที่ผู้กรอก *</span>
+          <span className="mb-1 block text-sm text-slate-700">ชื่อเจ้าหน้าที่ผู้กรอก *</span>
           <select
             value={uploader_staff}
             onChange={(e) => setUploaderStaff(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+            className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm text-slate-800"
             required
           >
             <option value="">-- เลือกเจ้าหน้าที่ --</option>
@@ -488,8 +488,8 @@ export function RateRequestForm() {
           </select>
         </label>
 
-        <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4">
-          <div className="text-sm font-semibold text-slate-200">แนบไฟล์ PDF รายละเอียดงาน</div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4">
+          <div className="text-sm font-semibold text-slate-800">แนบไฟล์ PDF รายละเอียดงาน</div>
           <div className="mt-2">
             <input
               type="file"
@@ -499,10 +499,10 @@ export function RateRequestForm() {
                 const list = e.target.files ? Array.from(e.target.files) : [];
                 setFiles(list);
               }}
-              className="w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-500/15 file:px-3 file:py-2 file:text-teal-200"
+              className="w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-rose-100 file:px-3 file:py-2 file:text-rose-700"
             />
           </div>
-          <div className="mt-2 text-xs text-slate-400">
+          <div className="mt-2 text-xs text-slate-500">
             เลือกได้หลายไฟล์ (แอปจะอัปโหลดขึ้น Supabase Storage)
           </div>
           {files.length > 0 && (
@@ -510,7 +510,7 @@ export function RateRequestForm() {
               {files.map((f) => (
                 <span
                   key={f.name + f.size}
-                  className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs text-slate-300"
+                  className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs text-slate-700"
                 >
                   {f.name}
                 </span>
@@ -523,14 +523,14 @@ export function RateRequestForm() {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-lg bg-teal-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-teal-400 disabled:opacity-60"
+            className="rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60"
           >
             {submitting ? "กำลังบันทึก..." : "ส่งข้อมูลเข้า RM"}
           </button>
           {toast && (
             <div
               className={`text-sm ${
-                toast.kind === "success" ? "text-teal-200" : "text-red-200"
+                toast.kind === "success" ? "text-rose-700" : "text-red-700"
               }`}
             >
               {toast.msg}
@@ -539,8 +539,8 @@ export function RateRequestForm() {
         </div>
 
         {lastCreatedId && (
-          <div className="text-xs text-slate-400">
-            บันทึกแล้ว: <span className="font-mono text-slate-200">{lastCreatedId}</span>
+          <div className="text-xs text-slate-500">
+            บันทึกแล้ว: <span className="font-mono text-slate-700">{lastCreatedId}</span>
           </div>
         )}
       </form>

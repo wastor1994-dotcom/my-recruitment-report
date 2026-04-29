@@ -3,15 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0c1222;
-  --card: rgba(17, 24, 39, 0.72);
-  --border: rgba(148, 163, 184, 0.12);
-  --accent: #2dd4bf;
-  --accent-muted: rgba(45, 212, 191, 0.15);
+  --bg: #fff7f8;
+  --accent: #dc2626;
 }
 
 body {
-  @apply min-h-screen antialiased text-slate-100;
-  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(45, 212, 191, 0.12), transparent),
+  @apply min-h-screen antialiased text-slate-800;
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(220, 38, 38, 0.08), transparent),
     var(--bg);
 }
