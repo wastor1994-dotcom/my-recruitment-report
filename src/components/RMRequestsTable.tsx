@@ -30,6 +30,7 @@ type RateRequestRow = {
   site_code?: string | null;
   request_no?: string | null;
   unit: string;
+  source?: string | null;
   employee_left_name?: string | null;
   position: string;
   salary_rate?: number | null;
@@ -112,6 +113,33 @@ export function RMRequestsTable() {
     return items.filter((r) => !r.status);
   }, [items, onlyPending]);
 
+  const monthlySummary = useMemo(() => {
+    const map = new Map<
+      string,
+      { month: string; total: number; started: number; backlog: number; over15: number }
+    >();
+    for (const r of items) {
+      if (!r.date_notified) continue;
+      const d = new Date(r.date_notified + "T12:00:00");
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      let entry = map.get(key);
+      if (!entry) {
+        entry = { month: key, total: 0, started: 0, backlog: 0, over15: 0 };
+        map.set(key, entry);
+      }
+      entry.total += 1;
+      const isStarted = r.status === "เริ่มงาน";
+      const backlogDays = computeBacklogDays(r.date_notified);
+      if (isStarted) {
+        entry.started += 1;
+      } else {
+        entry.backlog += 1;
+        if (backlogDays > 15) entry.over15 += 1;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
+  }, [items]);
+
   async function onSave(id: string) {
     const d = draft[id];
     if (!d) return;
@@ -168,6 +196,35 @@ export function RMRequestsTable() {
         </label>
       </div>
 
+      {!loading && !error && monthlySummary.length > 0 && (
+        <div className="mb-6 grid gap-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              เดือนล่าสุด
+            </p>
+            <p className="mt-1 text-lg font-semibold text-white">
+              {monthlySummary[monthlySummary.length - 1]?.month}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              คงค้าง (รวม)
+            </p>
+            <p className="mt-1 text-lg font-semibold text-yellow-300">
+              {monthlySummary.reduce((sum, m) => sum + m.backlog, 0)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              เกิน 15 วัน (รวม)
+            </p>
+            <p className="mt-1 text-lg font-semibold text-red-300">
+              {monthlySummary.reduce((sum, m) => sum + m.over15, 0)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {loading && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-6 text-slate-300">
           กำลังโหลดข้อมูล…
@@ -190,6 +247,7 @@ export function RMRequestsTable() {
                 <th className="px-3 py-3 text-left">คงค้าง (วัน)</th>
                 <th className="px-3 py-3 text-left">หน่วยงาน</th>
                 <th className="px-3 py-3 text-left">ตำแหน่ง</th>
+                <th className="px-3 py-3 text-left">แหล่งที่มา</th>
                 <th className="px-3 py-3 text-left">อัตรา</th>
                 <th className="px-3 py-3 text-left">เงินเดือน</th>
                 <th className="px-3 py-3 text-left">ชื่อพนักงานลาออก</th>
@@ -217,6 +275,7 @@ export function RMRequestsTable() {
                     </td>
                     <td className="px-3 py-3">{r.unit}</td>
                     <td className="px-3 py-3">{r.position}</td>
+                    <td className="px-3 py-3">{r.source ?? "—"}</td>
                     <td className="px-3 py-3">{rateText}</td>
                     <td className="px-3 py-3">
                       {typeof r.salary_rate === "number" ? r.salary_rate.toLocaleString() : "—"}

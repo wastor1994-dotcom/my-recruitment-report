@@ -20,6 +20,8 @@ create table if not exists public.rate_requests (
   request_no text,
   unit text not null,
 
+  source text,
+
   employee_left_name text,
   position text not null,
   salary_rate numeric(12,2),

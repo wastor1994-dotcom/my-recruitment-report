@@ -27,6 +27,7 @@ export async function POST(req: Request) {
     site_code?: string;
     request_no?: string;
     unit: string;
+    source?: string;
     employee_left_name?: string;
     position: string;
     salary_rate: number | null;
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
     site_code: body.site_code ?? null,
     request_no: body.request_no ?? null,
     unit: body.unit,
+    source: body.source ?? null,
     employee_left_name: body.employee_left_name ?? null,
     position: body.position,
     salary_rate: body.salary_rate ?? null,

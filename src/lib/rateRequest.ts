@@ -52,6 +52,20 @@ export const POSITIONS = [
 
 export type PositionName = (typeof POSITIONS)[number];
 
+export const SOURCES = [
+  "Jobthai",
+  "JobbKK",
+  "JobsDB",
+  "Facebook Group",
+  "Facebook Ads",
+  "IG",
+  "TikTok",
+  "TikTok Live",
+  "พนักงานแนะนำ",
+] as const;
+
+export type SourceName = (typeof SOURCES)[number];
+
 export const UPLOADER_STAFF = [
   "จุฑาทิพย์",
   "ณัฐธิดา",
@@ -97,6 +111,7 @@ export interface RateRequestFormValues {
   site_code: string;
   request_no: string;
   unit: UnitName | "";
+  source?: SourceName | "";
   employee_left_name: string;
   position: PositionName | "";
   salary_rate: number | "";
