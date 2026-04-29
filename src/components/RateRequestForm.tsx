@@ -45,10 +45,7 @@ export function RateRequestForm() {
 
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
 
-  const derivedRequestType: "replacement" | "new" = useMemo(() => {
-    const r = typeof replacement_count === "number" && replacement_count > 0;
-    return r ? "replacement" : "new";
-  }, [replacement_count]);
+  const [request_type_ui, setRequestTypeUi] = useState<"replacement" | "new">("new");
 
   const backlogDays = useMemo(() => {
     return Math.max(0, computeBacklogDays(date_notified));
@@ -71,13 +68,16 @@ export function RateRequestForm() {
       errors.salary_rate = "อัตราเงินเดือนต้องมากกว่า 0";
     }
 
-    const rc = typeof replacement_count === "number" ? replacement_count : 0;
-    const nc = typeof new_count === "number" ? new_count : 0;
-    if (rc <= 0 && nc <= 0) errors.rate = "กรุณากรอกอย่างน้อย 1 ค่า (อัตราทดแทน/อัตราใหม่)";
-
-    if (rc > 0) {
-      if (!employee_left_name.trim()) errors.employee_left_name = "สำหรับอัตราทดแทน ต้องกรอกชื่อพนักงานลาออก";
+    if (request_type_ui === "replacement") {
+      const rc = typeof replacement_count === "number" ? replacement_count : 0;
+      if (rc <= 0) errors.rate = "กรุณากรอกจำนวนอัตราทดแทน";
+      if (!employee_left_name.trim()) {
+        errors.employee_left_name = "สำหรับอัตราทดแทน ต้องกรอกชื่อพนักงานลาออก";
+      }
       if (!left_reason.trim()) errors.left_reason = "สำหรับอัตราทดแทน ต้องกรอกสาเหตุการลาออก";
+    } else {
+      const nc = typeof new_count === "number" ? new_count : 0;
+      if (nc <= 0) errors.rate = "กรุณากรอกจำนวนอัตราใหม่";
     }
 
     if (files.length === 0) {
@@ -99,16 +99,16 @@ export function RateRequestForm() {
       date_notified,
       last_work_date,
       desired_date,
-      request_type: derivedRequestType,
+      request_type: request_type_ui,
       replacement_count: typeof replacement_count === "number" ? replacement_count : "",
       new_count: typeof new_count === "number" ? new_count : "",
       site_code,
       request_no,
       unit: unit as any,
-      employee_left_name,
+      employee_left_name: request_type_ui === "replacement" ? employee_left_name : "",
       position: position as any,
       salary_rate: typeof salary_rate === "number" ? salary_rate : "",
-      left_reason,
+      left_reason: request_type_ui === "replacement" ? left_reason : "",
       uploader_staff: uploader_staff as any,
       files,
     };
@@ -164,16 +164,17 @@ export function RateRequestForm() {
           date_notified,
           last_work_date,
           desired_date,
-          request_type: rc > 0 ? "replacement" : "new",
-          replacement_count: rc,
-          new_count: nc,
+          request_type: request_type_ui,
+          replacement_count: request_type_ui === "replacement" ? rc : null,
+          new_count: request_type_ui === "new" ? nc : null,
           site_code: site_code || null,
           request_no: request_no || null,
           unit,
-          employee_left_name: rc > 0 ? employee_left_name.trim() : null,
+          employee_left_name:
+            request_type_ui === "replacement" ? employee_left_name.trim() : null,
           position,
           salary_rate: typeof salary_rate === "number" ? salary_rate : null,
-          left_reason: rc > 0 ? left_reason.trim() : null,
+          left_reason: request_type_ui === "replacement" ? left_reason.trim() : null,
           uploader_staff,
           files: uploadResults,
         }),
@@ -253,62 +254,87 @@ export function RateRequestForm() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">อัตราทดแทน</span>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={replacement_count}
+          <label className="block md:col-span-2">
+            <span className="mb-1 block text-sm text-slate-300">อัตรา *</span>
+            <select
+              value={request_type_ui}
               onChange={(e) => {
-                const v = e.target.value === "" ? "" : Number(e.target.value);
-                setReplacementCount(v);
+                const v = e.target.value as "replacement" | "new";
+                setRequestTypeUi(v);
+                // เคลียร์ค่าที่ไม่เกี่ยวข้อง เพื่อเลี่ยง validation/การบันทึกผิด
+                if (v === "replacement") setNewCount("");
+                if (v === "new") setReplacementCount("");
               }}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-            />
+              required
+            >
+              <option value="replacement">ทดแทน</option>
+              <option value="new">อัตราใหม่</option>
+            </select>
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">อัตราใหม่</span>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={new_count}
-              onChange={(e) => {
-                const v = e.target.value === "" ? "" : Number(e.target.value);
-                setNewCount(v);
-              }}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-            />
-          </label>
+          {request_type_ui === "replacement" ? (
+            <label className="block md:col-span-2">
+              <span className="mb-1 block text-sm text-slate-300">
+                จำนวนอัตราทดแทน *
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={replacement_count}
+                required
+                onChange={(e) => {
+                  const v = e.target.value === "" ? "" : Number(e.target.value);
+                  setReplacementCount(v);
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+            </label>
+          ) : (
+            <label className="block md:col-span-2">
+              <span className="mb-1 block text-sm text-slate-300">
+                จำนวนอัตราใหม่ *
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={new_count}
+                required
+                onChange={(e) => {
+                  const v = e.target.value === "" ? "" : Number(e.target.value);
+                  setNewCount(v);
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              />
+            </label>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">รหัสไซต์ (ถ้าไม่กรอกสามารถเซฟได้)</span>
+            <span className="mb-1 block text-sm text-slate-300">รหัสไซต์</span>
             <input
               value={site_code}
               onChange={(e) => setSiteCode(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              placeholder="เช่น ONEBKK-01"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-slate-300">เลขที่ใบขอ (ถ้าไม่กรอกสามารถเซฟได้)</span>
+            <span className="mb-1 block text-sm text-slate-300">เลขที่ใบขอ</span>
             <input
               value={request_no}
               onChange={(e) => setRequestNo(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              placeholder="เช่น RQ-0001"
             />
           </label>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">หน่วยงาน * </span>
+            <span className="mb-1 block text-sm text-slate-300">หน่วยงาน *</span>
             <select
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
@@ -326,7 +352,7 @@ export function RateRequestForm() {
 
           <label className="block md:col-span-2">
             <span className="mb-1 block text-sm text-slate-300">
-              ตำแหน่ง (มีดรอปดาวให้เลือก) *
+              ตำแหน่ง *
             </span>
             <select
               value={position}
@@ -344,34 +370,25 @@ export function RateRequestForm() {
           </label>
         </div>
 
-        {typeof replacement_count === "number" && replacement_count > 0 && (
+        {request_type_ui === "replacement" && (
           <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-4">
-            <div className="text-sm font-semibold text-yellow-200">
-              โหมด: อัตราทดแทน (ต้องกรอก “ชื่อพนักงานลาออก” และ “สาเหตุการลาออก”)
-            </div>
             <div className="mt-3 grid gap-4 md:grid-cols-2">
               <label className="block md:col-span-2">
-                <span className="mb-1 block text-sm text-slate-300">
-                  ชื่อพนักงานลาออก (เฉพาะชื่อ+นามสกุล) *
-                </span>
+                <span className="mb-1 block text-sm text-slate-300">ชื่อพนักงานลาออก *</span>
                 <input
                   value={employee_left_name}
                   onChange={(e) => setEmployeeLeftName(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-                  placeholder="เช่น นาย/นาง ..."
                   required
                 />
               </label>
 
               <label className="block md:col-span-2">
-                <span className="mb-1 block text-sm text-slate-300">
-                  สาเหตุการลาออก *
-                </span>
+                <span className="mb-1 block text-sm text-slate-300">สาเหตุการลาออก *</span>
                 <input
                   value={left_reason}
                   onChange={(e) => setLeftReason(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-                  placeholder="ระบุสาเหตุการลาออก"
                   required
                 />
               </label>

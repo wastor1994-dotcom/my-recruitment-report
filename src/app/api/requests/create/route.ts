@@ -35,15 +35,55 @@ export async function POST(req: Request) {
     files?: IncomingFile[];
   };
 
-  // Minimal server-side validation (client already validates too)
+  // Validation (server-side) — client already validates too,
+  // but this prevents bad/malformed requests.
   if (!body?.id) {
     return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 });
   }
+
   if (!body?.date_notified || !body?.unit || !body?.position || !body?.uploader_staff) {
     return NextResponse.json(
       { ok: false, error: "Missing required fields" },
       { status: 400 },
     );
+  }
+  if (body.salary_rate == null || typeof body.salary_rate !== "number" || body.salary_rate <= 0) {
+    return NextResponse.json(
+      { ok: false, error: "Missing or invalid salary_rate" },
+      { status: 400 },
+    );
+  }
+
+  if (!body.files?.length) {
+    return NextResponse.json({ ok: false, error: "Missing files" }, { status: 400 });
+  }
+
+  if (body.request_type === "replacement") {
+    if (!body.replacement_count || body.replacement_count <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Missing replacement_count" },
+        { status: 400 },
+      );
+    }
+    if (!body.employee_left_name?.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "Missing employee_left_name" },
+        { status: 400 },
+      );
+    }
+    if (!body.left_reason?.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "Missing left_reason" },
+        { status: 400 },
+      );
+    }
+  } else {
+    if (!body.new_count || body.new_count <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Missing new_count" },
+        { status: 400 },
+      );
+    }
   }
 
   const { error: insertError } = await supabase.from("rate_requests").insert({
