@@ -83,9 +83,7 @@ export function RateRequestForm() {
       if (nc <= 0) errors.rate = "กรุณากรอกจำนวนอัตราใหม่";
     }
 
-    if (files.length === 0) {
-      errors.files = "กรุณาแนบไฟล์ PDF อย่างน้อย 1 ไฟล์";
-    } else {
+    if (files.length > 0) {
       const notPdf = files.some((f) => !f.type?.includes("pdf") && !f.name.toLowerCase().endsWith(".pdf"));
       if (notPdf) errors.files = "รองรับเฉพาะไฟล์ PDF เท่านั้น";
     }
@@ -491,7 +489,7 @@ export function RateRequestForm() {
         </label>
 
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4">
-          <div className="text-sm font-semibold text-slate-200">แนบไฟล์ PDF รายละเอียดงาน *</div>
+          <div className="text-sm font-semibold text-slate-200">แนบไฟล์ PDF รายละเอียดงาน</div>
           <div className="mt-2">
             <input
               type="file"

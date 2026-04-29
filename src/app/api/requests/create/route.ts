@@ -55,10 +55,6 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!body.files?.length) {
-    return NextResponse.json({ ok: false, error: "Missing files" }, { status: 400 });
-  }
-
   if (body.request_type === "replacement") {
     if (!body.replacement_count || body.replacement_count <= 0) {
       return NextResponse.json(
