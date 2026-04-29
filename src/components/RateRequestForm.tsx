@@ -31,8 +31,12 @@ export function RateRequestForm() {
   const [request_no, setRequestNo] = useState<string>("");
 
   const [unit, setUnit] = useState<string>("");
+  const [unitOptions, setUnitOptions] = useState<string[]>(() => [...SITE_UNITS]);
+  const [unitNew, setUnitNew] = useState<string>("");
   const [employee_left_name, setEmployeeLeftName] = useState<string>("");
   const [position, setPosition] = useState<string>("");
+  const [positionOptions, setPositionOptions] = useState<string[]>(() => [...POSITIONS]);
+  const [positionNew, setPositionNew] = useState<string>("");
 
   const [salary_rate, setSalaryRate] = useState<number | "">("");
   const [left_reason, setLeftReason] = useState<string>("");
@@ -342,13 +346,41 @@ export function RateRequestForm() {
               required
             >
               <option value="">-- เลือกหน่วยงาน --</option>
-              {SITE_UNITS.map((u) => (
+              {unitOptions.map((u) => (
                 <option value={u} key={u}>
                   {u}
                 </option>
               ))}
             </select>
           </label>
+
+          <div className="md:col-span-2 flex flex-col gap-2 text-sm">
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-400">เพิ่มรายการหน่วยงาน</span>
+              <div className="flex gap-2">
+                <input
+                  value={unitNew}
+                  onChange={(e) => setUnitNew(e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                />
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-600"
+                  onClick={() => {
+                    const v = unitNew.trim();
+                    if (!v) return;
+                    if (!unitOptions.includes(v)) {
+                      setUnitOptions((prev) => [...prev, v]);
+                    }
+                    setUnit(v);
+                    setUnitNew("");
+                  }}
+                >
+                  เพิ่มรายการ
+                </button>
+              </div>
+            </label>
+          </div>
 
           <label className="block md:col-span-2">
             <span className="mb-1 block text-sm text-slate-300">
@@ -361,13 +393,41 @@ export function RateRequestForm() {
               required
             >
               <option value="">-- เลือกตำแหน่ง --</option>
-              {POSITIONS.map((p) => (
+              {positionOptions.map((p) => (
                 <option value={p} key={p}>
                   {p}
                 </option>
               ))}
             </select>
           </label>
+
+          <div className="md:col-span-2 flex flex-col gap-2 text-sm">
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-400">เพิ่มรายการตำแหน่ง</span>
+              <div className="flex gap-2">
+                <input
+                  value={positionNew}
+                  onChange={(e) => setPositionNew(e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                />
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-600"
+                  onClick={() => {
+                    const v = positionNew.trim();
+                    if (!v) return;
+                    if (!positionOptions.includes(v)) {
+                      setPositionOptions((prev) => [...prev, v]);
+                    }
+                    setPosition(v);
+                    setPositionNew("");
+                  }}
+                >
+                  เพิ่มรายการ
+                </button>
+              </div>
+            </label>
+          </div>
         </div>
 
         {request_type_ui === "replacement" && (
