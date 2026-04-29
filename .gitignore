@@ -13,3 +13,10 @@ build/
 .vscode/
 *.log
 .streamlit/secrets.toml
+
+# Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.tools/
