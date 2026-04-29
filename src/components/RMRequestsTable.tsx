@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  SOURCES,
   RESPONSIBLES,
   STATUSES,
   computeBacklogDays,
@@ -56,6 +57,7 @@ export function RMRequestsTable() {
     Record<
       string,
       {
+        source: string;
         status: RequestStatus | "";
         responsible_person: ResponsiblePerson | "";
       }
@@ -81,6 +83,7 @@ export function RMRequestsTable() {
         const nextDraft: typeof draft = {};
         for (const r of rows) {
           nextDraft[r.id] = {
+            source: r.source ?? "",
             status: (r.status as RequestStatus | null) ?? "",
             responsible_person: (r.responsible_person as ResponsiblePerson | null) ?? "",
           };
@@ -143,8 +146,8 @@ export function RMRequestsTable() {
   async function onSave(id: string) {
     const d = draft[id];
     if (!d) return;
-    if (!d.status || !d.responsible_person) {
-      alert("กรุณาเลือกสถานะและผู้รับผิดชอบก่อนกดบันทึก");
+    if (!d.source || !d.status || !d.responsible_person) {
+      alert("กรุณาเลือกแหล่งที่มา สถานะ และผู้รับผิดชอบก่อนกดบันทึก");
       return;
     }
 
@@ -153,6 +156,7 @@ export function RMRequestsTable() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         request_id: id,
+        source: d.source,
         status: d.status,
         responsible_person: d.responsible_person,
       }),
@@ -171,6 +175,7 @@ export function RMRequestsTable() {
     setDraft((prev) => ({
       ...prev,
       [id]: {
+        source: d.source,
         status: d.status,
         responsible_person: d.responsible_person,
       },
@@ -275,7 +280,32 @@ export function RMRequestsTable() {
                     </td>
                     <td className="px-3 py-3">{r.unit}</td>
                     <td className="px-3 py-3">{r.position}</td>
-                    <td className="px-3 py-3">{r.source ?? "—"}</td>
+                    <td className="px-3 py-3">
+                      <select
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                        value={draft[r.id]?.source ?? ""}
+                        onChange={(e) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            [r.id]: {
+                              ...(prev[r.id] ?? {
+                                source: "",
+                                status: "",
+                                responsible_person: "",
+                              }),
+                              source: e.target.value,
+                            },
+                          }))
+                        }
+                      >
+                        <option value="">-- เลือกแหล่งที่มา --</option>
+                        {SOURCES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="px-3 py-3">{rateText}</td>
                     <td className="px-3 py-3">
                       {typeof r.salary_rate === "number" ? r.salary_rate.toLocaleString() : "—"}
@@ -322,6 +352,7 @@ export function RMRequestsTable() {
                             ...prev,
                             [r.id]: {
                               ...(prev[r.id] ?? { status: "", responsible_person: "" }),
+                              source: prev[r.id]?.source ?? "",
                               status: e.target.value as RequestStatus | "",
                             },
                           }))
@@ -344,6 +375,7 @@ export function RMRequestsTable() {
                             ...prev,
                             [r.id]: {
                               ...(prev[r.id] ?? { status: "", responsible_person: "" }),
+                              source: prev[r.id]?.source ?? "",
                               responsible_person:
                                 e.target.value as ResponsiblePerson | "",
                             },
@@ -372,7 +404,7 @@ export function RMRequestsTable() {
               })}
               {!visibleItems.length && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={14} className="px-3 py-8 text-center text-slate-400">
                     ไม่มีรายการที่ต้องจัดการ
                   </td>
                 </tr>

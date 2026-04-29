@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { getPdfsBucketName, getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import {
   POSITIONS,
-  SOURCES,
   SITE_UNITS,
   UPLOADER_STAFF,
   type ResponsiblePerson,
@@ -38,8 +37,6 @@ export function RateRequestForm() {
   const [positionOptions, setPositionOptions] = useState<string[]>(() => [...POSITIONS]);
   const [positionNew, setPositionNew] = useState<string>("");
 
-  const [source, setSource] = useState<string>("");
-
   const [salary_rate, setSalaryRate] = useState<number | "">("");
   const [left_reason, setLeftReason] = useState<string>("");
   const [uploader_staff, setUploaderStaff] = useState<string>("");
@@ -67,7 +64,6 @@ export function RateRequestForm() {
     if (!values.desired_date) errors.desired_date = "กรุณากรอกวันที่ต้องการ";
     if (!values.unit) errors.unit = "กรุณาเลือกหน่วยงาน";
     if (!values.position) errors.position = "กรุณาเลือกตำแหน่ง";
-    if (!source) errors.source = "กรุณาเลือกแหล่งที่มา";
     if (!values.uploader_staff) errors.uploader_staff = "กรุณาเลือกชื่อเจ้าหน้าที่ผู้กรอก";
     if (!values.salary_rate || typeof values.salary_rate !== "number") {
       errors.salary_rate = "กรุณากรอกอัตราเงินเดือน";
@@ -114,7 +110,6 @@ export function RateRequestForm() {
       unit: unit as any,
       employee_left_name: request_type_ui === "replacement" ? employee_left_name : "",
       position: position as any,
-      source: source as any,
       salary_rate: typeof salary_rate === "number" ? salary_rate : "",
       left_reason: request_type_ui === "replacement" ? left_reason : "",
       uploader_staff: uploader_staff as any,
@@ -178,7 +173,6 @@ export function RateRequestForm() {
           site_code: site_code || null,
           request_no: request_no || null,
           unit,
-          source,
           employee_left_name:
             request_type_ui === "replacement" ? employee_left_name.trim() : null,
           position,
@@ -207,7 +201,6 @@ export function RateRequestForm() {
       setRequestNo("");
       setUnit("");
       setPosition("");
-      setSource("");
       setUploaderStaff("");
     } catch (err: any) {
       setToast({ kind: "error", msg: err?.message || "เกิดข้อผิดพลาด" });
@@ -402,23 +395,6 @@ export function RateRequestForm() {
               {positionOptions.map((p) => (
                 <option value={p} key={p}>
                   {p}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block md:col-span-2">
-            <span className="mb-1 block text-sm text-slate-300">แหล่งที่มา *</span>
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
-              required
-            >
-              <option value="">-- เลือกแหล่งที่มา --</option>
-              {SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
                 </option>
               ))}
             </select>

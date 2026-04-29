@@ -13,11 +13,17 @@ export async function POST(req: Request) {
 
   const body = (await req.json()) as {
     request_id: string;
+    source?: string;
     status: RequestStatus;
     responsible_person: ResponsiblePerson;
   };
 
-  if (!body?.request_id || !body?.status || !body?.responsible_person) {
+  if (
+    !body?.request_id ||
+    !body?.source ||
+    !body?.status ||
+    !body?.responsible_person
+  ) {
     return NextResponse.json(
       { ok: false, error: "Missing required fields" },
       { status: 400 },
@@ -27,6 +33,7 @@ export async function POST(req: Request) {
   const { error } = await supabase
     .from("rate_requests")
     .update({
+      source: body.source,
       status: body.status,
       responsible_person: body.responsible_person,
     })
