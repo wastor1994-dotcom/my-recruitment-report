@@ -2,7 +2,6 @@
 
 import type { FormEvent } from "react";
 import { useMemo, useState } from "react";
-import { getPdfsBucketName, getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import {
   POSITIONS,
   SITE_UNITS,
@@ -121,64 +120,44 @@ export function RateRequestForm() {
       return;
     }
 
-    const supabase = getSupabaseBrowser();
-    if (!supabase) {
-      setToast({
-        kind: "error",
-        msg: "ยังไม่ตั้งค่า Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY) บนเครื่อง/ที่ deploy",
-      });
-      return;
-    }
-
-    const bucket = getPdfsBucketName();
     const requestId = crypto.randomUUID();
 
     setSubmitting(true);
     try {
-      // 1) Upload PDFs to Supabase Storage
-      const uploadResults = await Promise.all(
-        files.map(async (file) => {
-          const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-          const ext = file.name.includes(".") ? file.name.split(".").pop() : "pdf";
-          const safeName = file.name.replaceAll(" ", "_");
-          const filePath = `${requestId}/${unique}-${safeName}`;
-
-          const { error } = await supabase.storage.from(bucket).upload(filePath, file, {
-            contentType: file.type || "application/pdf",
-            upsert: false,
-          });
-          if (error) throw error;
-
-          return { file_path: filePath, file_name: safeName, mime_type: file.type || `application/${ext}` };
-        }),
-      );
-
-      // 2) Insert record + file metadata
       const rc = typeof replacement_count === "number" ? replacement_count : 0;
       const nc = typeof new_count === "number" ? new_count : 0;
+      const formData = new FormData();
+      formData.append("id", requestId);
+      formData.append("date_notified", date_notified);
+      formData.append("last_work_date", last_work_date || "");
+      formData.append("desired_date", desired_date || "");
+      formData.append("request_type", request_type_ui);
+      formData.append(
+        "replacement_count",
+        request_type_ui === "replacement" ? String(rc) : "",
+      );
+      formData.append("new_count", request_type_ui === "new" ? String(nc) : "");
+      formData.append("site_code", site_code || "");
+      formData.append("request_no", request_no || "");
+      formData.append("unit", unit);
+      formData.append(
+        "employee_left_name",
+        request_type_ui === "replacement" ? employee_left_name.trim() : "",
+      );
+      formData.append("position", position);
+      formData.append(
+        "salary_rate",
+        typeof salary_rate === "number" ? String(salary_rate) : "",
+      );
+      formData.append("left_reason", request_type_ui === "replacement" ? left_reason.trim() : "");
+      formData.append("uploader_staff", uploader_staff);
+      for (const file of files) {
+        formData.append("files", file);
+      }
 
       const resp = await fetch("/api/requests/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: requestId,
-          date_notified,
-          last_work_date,
-          desired_date,
-          request_type: request_type_ui,
-          replacement_count: request_type_ui === "replacement" ? rc : null,
-          new_count: request_type_ui === "new" ? nc : null,
-          site_code: site_code || null,
-          request_no: request_no || null,
-          unit,
-          employee_left_name:
-            request_type_ui === "replacement" ? employee_left_name.trim() : null,
-          position,
-          salary_rate: typeof salary_rate === "number" ? salary_rate : null,
-          left_reason: request_type_ui === "replacement" ? left_reason.trim() : null,
-          uploader_staff,
-          files: uploadResults,
-        }),
+        body: formData,
       });
 
       const data = (await resp.json()) as { ok?: boolean; error?: string };
@@ -503,7 +482,7 @@ export function RateRequestForm() {
             />
           </div>
           <div className="mt-2 text-xs text-slate-500">
-            เลือกได้หลายไฟล์ (แอปจะอัปโหลดขึ้น Supabase Storage)
+            เลือกได้หลายไฟล์ (แอปจะอัปโหลดขึ้น Google Drive)
           </div>
           {files.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">

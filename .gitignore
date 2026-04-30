@@ -21,3 +21,4 @@ out/
 *.tsbuildinfo
 .tools/
 .vercel
+.env.local

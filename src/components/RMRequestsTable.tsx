@@ -9,13 +9,11 @@ import {
   type ResponsiblePerson,
   type RequestStatus,
 } from "@/lib/rateRequest";
-import { getPdfsBucketName, getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 type RateRequestFile = {
-  id?: number;
-  request_id: string;
-  file_path: string;
   file_name: string;
+  file_url: string;
+  drive_file_id: string;
   mime_type?: string | null;
 };
 
@@ -101,15 +99,6 @@ export function RMRequestsTable() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const pdfBucket = useMemo(() => getPdfsBucketName(), []);
-  const supabase = useMemo(() => getSupabaseBrowser(), []);
-
-  function getPublicPdfUrl(path: string) {
-    if (!supabase) return null;
-    const { data } = supabase.storage.from(pdfBucket).getPublicUrl(path);
-    return data.publicUrl ?? null;
-  }
 
   const visibleItems = useMemo(() => {
     if (!onlyPending) return items;
@@ -323,10 +312,10 @@ export function RMRequestsTable() {
                     <td className="px-3 py-3">
                       <div className="flex max-w-[220px] flex-col gap-1">
                         {(r.files ?? []).slice(0, 3).map((f) => {
-                          const url = f.file_path ? getPublicPdfUrl(f.file_path) : null;
+                          const url = f.file_url || null;
                           return (
                             <a
-                              key={f.file_path}
+                              key={f.drive_file_id}
                               href={url ?? "#"}
                               target="_blank"
                               rel="noreferrer"
