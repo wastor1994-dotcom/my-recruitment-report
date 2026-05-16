@@ -190,6 +190,12 @@ export function RecruitmentDashboard() {
         </aside>
 
         <main className="min-w-0 flex-1 space-y-8">
+          {filtered.length < rows.length && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+              แสดง {filtered.length.toLocaleString("th-TH")} จาก {rows.length.toLocaleString("th-TH")}{" "}
+              แถว — ลองขยายช่วงวันที่หรือเลือกฝ่าย/ตำแหน่งเป็น &quot;ทั้งหมด&quot;
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard label="ผู้สมัครทั้งหมด" value={m.total.toLocaleString("th-TH")} />
             <MetricCard label="รับเข้าทำงาน" value={m.hired.toLocaleString("th-TH")} />

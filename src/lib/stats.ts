@@ -19,9 +19,22 @@ export const STAGE_LABELS_TH: Record<Stage, string> = {
   Rejected: "ไม่ผ่าน/ปฏิเสธ",
 };
 
+const THAI_STAGE_MAP: Record<string, Stage> = {
+  รอดาต้า: "Applied",
+  รอสัมภาษณ์: "Interview",
+  รอผลสัมภาษณ์: "Interview",
+  รอเริ่มงาน: "Offer",
+  เริ่มงาน: "Hired",
+  รับแล้ว: "Hired",
+  ไม่ผ่าน: "Rejected",
+  ปฏิเสธ: "Rejected",
+};
+
 export function normalizeStage(raw: string): Stage {
-  const s = raw.trim() as Stage;
-  if (STAGE_ORDER.includes(s)) return s;
+  const s = raw.trim();
+  if (!s) return "Applied";
+  if (STAGE_ORDER.includes(s as Stage)) return s as Stage;
+  if (THAI_STAGE_MAP[s]) return THAI_STAGE_MAP[s];
   return "Applied";
 }
 
@@ -36,20 +49,70 @@ function headerKey(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+/** แมปหัวคอลัมน์ไทย/อังกฤษ → ชื่อมาตรฐาน */
+const HEADER_ALIASES: Record<string, string> = {
+  candidate_id: "candidate_id",
+  id: "candidate_id",
+  รหัส: "candidate_id",
+  เลขที่ใบขอ: "candidate_id",
+  request_no: "candidate_id",
+  applied_date: "applied_date",
+  date_notified: "applied_date",
+  วันที่แจ้ง: "applied_date",
+  วันที่สมัคร: "applied_date",
+  วันที่ต้องการ: "applied_date",
+  position: "position",
+  ตำแหน่ง: "position",
+  department: "department",
+  ฝ่าย: "department",
+  หน่วยงาน: "department",
+  unit: "department",
+  stage: "stage",
+  สถานะ: "stage",
+  status: "stage",
+  source: "source",
+  แหล่งที่มา: "source",
+  interview_date: "interview_date",
+  วันที่สัมภาษณ์: "interview_date",
+  offer_date: "offer_date",
+  hired_date: "hired_date",
+  วันที่รับ: "hired_date",
+  วันที่เริ่มงาน: "hired_date",
+};
+
+function canonicalHeader(raw: string): string {
+  const trimmed = raw.trim();
+  const h = headerKey(trimmed);
+  return HEADER_ALIASES[h] ?? HEADER_ALIASES[trimmed] ?? h;
+}
+
 function excelCellToIso(v: unknown): string | null {
   if (v == null || v === "") return null;
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    return v.toISOString().slice(0, 10);
+  }
   if (typeof v === "number" && v > 1000) {
     const d = XLSX.SSF.parse_date_code(v);
     return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   }
   const s = String(v).trim();
   if (!s) return null;
+
+  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (dmy) {
+    let y = Number(dmy[3]);
+    if (y < 100) y += 2000;
+    const m = String(Number(dmy[2])).padStart(2, "0");
+    const d = String(Number(dmy[1])).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
   const t = Date.parse(s);
-  if (!Number.isNaN(t)) return s.slice(0, 10);
+  if (!Number.isNaN(t)) return new Date(t).toISOString().slice(0, 10);
   return null;
 }
 
-function rowFromRecord(rec: Record<string, unknown>): RecruitmentRow {
+function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): RecruitmentRow {
   const get = (...keys: string[]) => {
     for (const k of keys) {
       const v = rec[k];
@@ -57,16 +120,23 @@ function rowFromRecord(rec: Record<string, unknown>): RecruitmentRow {
     }
     return "";
   };
+  const stageRaw = get("stage", "สถานะ", "status");
+  const applied =
+    excelCellToIso(rec.applied_date) ??
+    excelCellToIso(rec.date_notified) ??
+    "";
+
   return {
-    candidate_id: get("candidate_id", "id", "รหัส"),
+    candidate_id: get("candidate_id", "id") || `row-${rowIndex + 1}`,
     position: get("position", "ตำแหน่ง"),
-    department: get("department", "ฝ่าย", "หน่วยงาน"),
-    applied_date: excelCellToIso(rec.applied_date ?? rec["วันที่สมัคร"]) ?? "",
-    stage: normalizeStage(get("stage", "สถานะ")),
+    department: get("department", "ฝ่าย", "หน่วยงาน", "unit"),
+    applied_date: applied,
+    stage: normalizeStage(stageRaw),
+    stage_raw: stageRaw || undefined,
     source: get("source", "แหล่งที่มา"),
-    interview_date: excelCellToIso(rec.interview_date ?? rec["วันที่สัมภาษณ์"]),
+    interview_date: excelCellToIso(rec.interview_date),
     offer_date: excelCellToIso(rec.offer_date),
-    hired_date: excelCellToIso(rec.hired_date ?? rec["วันที่รับ"]),
+    hired_date: excelCellToIso(rec.hired_date),
   };
 }
 
@@ -75,14 +145,21 @@ export function parseRecruitmentExcel(buffer: ArrayBuffer): RecruitmentRow[] {
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return [];
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-  const normalized = rows.map((row) => {
+  const normalized = rows.map((row, i) => {
     const rec: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
-      rec[headerKey(k)] = v;
+      rec[canonicalHeader(k)] = v;
     }
-    return rowFromRecord(rec);
+    return rowFromRecord(rec, i);
   });
-  return normalized.filter((r) => r.candidate_id || r.position || r.department);
+  return normalized.filter(
+    (r) =>
+      r.position ||
+      r.department ||
+      r.source ||
+      r.stage_raw ||
+      (r.candidate_id && !r.candidate_id.startsWith("row-")),
+  );
 }
 
 export function parseRecruitmentCSV(text: string): RecruitmentRow[] {
@@ -124,9 +201,10 @@ export function filterRows(
   const from = dayStart(fromIso);
   const to = dayStart(toIso);
   return rows.filter((r) => {
-    if (!r.applied_date) return false;
-    const t = dayStart(r.applied_date);
-    if (t < from || t > to) return false;
+    if (r.applied_date) {
+      const t = dayStart(r.applied_date);
+      if (t < from || t > to) return false;
+    }
     if (department !== "ทั้งหมด" && r.department !== department) return false;
     if (position !== "ทั้งหมด" && r.position !== position) return false;
     return true;
@@ -173,6 +251,15 @@ export function funnelSeries(rows: RecruitmentRow[]) {
 }
 
 export function stageBarSeries(rows: RecruitmentRow[]) {
+  const hasRaw = rows.some((r) => r.stage_raw);
+  if (hasRaw) {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const label = r.stage_raw?.trim() || STAGE_LABELS_TH[r.stage] || "ไม่ระบุ";
+      map.set(label, (map.get(label) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }
   return STAGE_ORDER.map((stage) => ({
     name: STAGE_LABELS_TH[stage],
     count: rows.filter((r) => r.stage === stage).length,
