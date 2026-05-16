@@ -86,6 +86,73 @@ function canonicalHeader(raw: string): string {
   return HEADER_ALIASES[h] ?? HEADER_ALIASES[trimmed] ?? h;
 }
 
+const KNOWN_CANONICAL_HEADERS = new Set([
+  "candidate_id",
+  "applied_date",
+  "position",
+  "department",
+  "stage",
+  "source",
+  "interview_date",
+  "offer_date",
+  "hired_date",
+]);
+
+function scoreHeaderRow(cells: unknown[]): number {
+  let score = 0;
+  for (const cell of cells) {
+    const c = canonicalHeader(String(cell ?? ""));
+    if (KNOWN_CANONICAL_HEADERS.has(c)) score += 1;
+    if (HEADER_ALIASES[String(cell ?? "").trim()]) score += 1;
+  }
+  return score;
+}
+
+function sheetToRows(sheet: XLSX.WorkSheet): RecruitmentRow[] {
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: "",
+    blankrows: false,
+  }) as unknown[][];
+
+  if (!matrix.length) return [];
+
+  let headerRowIndex = 0;
+  let bestScore = 0;
+  const scanLimit = Math.min(25, matrix.length);
+  for (let i = 0; i < scanLimit; i++) {
+    const score = scoreHeaderRow(matrix[i] ?? []);
+    if (score > bestScore) {
+      bestScore = score;
+      headerRowIndex = i;
+    }
+  }
+
+  if (bestScore === 0) {
+    headerRowIndex = 0;
+  }
+
+  const headerCells = (matrix[headerRowIndex] ?? []).map((c) => canonicalHeader(String(c ?? "")));
+  const dataRows = matrix.slice(headerRowIndex + 1);
+
+  const normalized: RecruitmentRow[] = [];
+  for (let i = 0; i < dataRows.length; i++) {
+    const line = dataRows[i] ?? [];
+    const rec: Record<string, unknown> = {};
+    let filled = 0;
+    for (let c = 0; c < headerCells.length; c++) {
+      const key = headerCells[c];
+      if (!key || key.startsWith("__empty")) continue;
+      const val = line[c];
+      if (val != null && String(val).trim() !== "") filled += 1;
+      rec[key] = val;
+    }
+    if (filled === 0) continue;
+    normalized.push(rowFromRecord(rec, i));
+  }
+  return normalized;
+}
+
 function excelCellToIso(v: unknown): string | null {
   if (v == null || v === "") return null;
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
@@ -120,46 +187,89 @@ function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): Recruitm
     }
     return "";
   };
-  const stageRaw = get("stage", "สถานะ", "status");
-  const applied =
+
+  let applied =
     excelCellToIso(rec.applied_date) ??
     excelCellToIso(rec.date_notified) ??
     "";
+  let position = get("position", "ตำแหน่ง");
+  let department = get("department", "ฝ่าย", "หน่วยงาน", "unit");
+  let stageRaw = get("stage", "สถานะ", "status");
+  let source = get("source", "แหล่งที่มา");
+
+  for (const [k, v] of Object.entries(rec)) {
+    const key = k.toLowerCase();
+    if (!applied && (key.includes("วันที่") || key.includes("date"))) {
+      applied = excelCellToIso(v) ?? applied;
+    }
+    if (!position && key.includes("ตำแหน่ง")) position = String(v).trim();
+    if (!department && (key.includes("หน่วย") || key.includes("ฝ่าย") || key === "unit")) {
+      department = String(v).trim();
+    }
+    if (!stageRaw && key.includes("สถานะ")) stageRaw = String(v).trim();
+    if (!source && key.includes("แหล่ง")) source = String(v).trim();
+  }
 
   return {
     candidate_id: get("candidate_id", "id") || `row-${rowIndex + 1}`,
-    position: get("position", "ตำแหน่ง"),
-    department: get("department", "ฝ่าย", "หน่วยงาน", "unit"),
+    position,
+    department,
     applied_date: applied,
     stage: normalizeStage(stageRaw),
     stage_raw: stageRaw || undefined,
-    source: get("source", "แหล่งที่มา"),
+    source,
     interview_date: excelCellToIso(rec.interview_date),
     offer_date: excelCellToIso(rec.offer_date),
     hired_date: excelCellToIso(rec.hired_date),
   };
 }
 
-export function parseRecruitmentExcel(buffer: ArrayBuffer): RecruitmentRow[] {
+export type ExcelParseResult = {
+  rows: RecruitmentRow[];
+  sheetName: string;
+  headerRow: number;
+  rawRowCount: number;
+};
+
+export function parseRecruitmentExcel(buffer: ArrayBuffer): ExcelParseResult {
   const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  if (!sheet) return [];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
-  const normalized = rows.map((row, i) => {
-    const rec: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(row)) {
-      rec[canonicalHeader(k)] = v;
+  let best: RecruitmentRow[] = [];
+  let bestSheet = wb.SheetNames[0] ?? "";
+  let bestHeaderRow = 0;
+  let bestRaw = 0;
+
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    if (!sheet) continue;
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: "",
+      blankrows: false,
+    }) as unknown[][];
+    const parsed = sheetToRows(sheet);
+    if (parsed.length > best.length) {
+      best = parsed;
+      bestSheet = name;
+      bestRaw = matrix.length;
+      let headerRowIndex = 0;
+      let bestScore = 0;
+      for (let i = 0; i < Math.min(25, matrix.length); i++) {
+        const score = scoreHeaderRow(matrix[i] ?? []);
+        if (score > bestScore) {
+          bestScore = score;
+          headerRowIndex = i;
+        }
+      }
+      bestHeaderRow = headerRowIndex + 1;
     }
-    return rowFromRecord(rec, i);
-  });
-  return normalized.filter(
-    (r) =>
-      r.position ||
-      r.department ||
-      r.source ||
-      r.stage_raw ||
-      (r.candidate_id && !r.candidate_id.startsWith("row-")),
-  );
+  }
+
+  return {
+    rows: best,
+    sheetName: bestSheet,
+    headerRow: bestHeaderRow,
+    rawRowCount: bestRaw,
+  };
 }
 
 export function parseRecruitmentCSV(text: string): RecruitmentRow[] {

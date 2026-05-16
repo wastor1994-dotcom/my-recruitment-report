@@ -54,6 +54,7 @@ export function RecruitmentDashboard() {
   const [rows, setRows] = useState<RecruitmentRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [dept, setDept] = useState("ทั้งหมด");
@@ -63,11 +64,15 @@ export function RecruitmentDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
     setParseError(null);
+    setUploading(true);
     try {
       const buffer = await file.arrayBuffer();
-      const parsed = parseRecruitmentExcel(buffer);
+      const result = parseRecruitmentExcel(buffer);
+      const parsed = result.rows;
       if (!parsed.length) {
-        setParseError("ไม่พบข้อมูลในไฟล์ Excel");
+        setParseError(
+          `ไม่พบข้อมูลที่อ่านได้ (ชีต "${result.sheetName}", ${result.rawRowCount} แถวดิบ) — ตรวจสอบว่ามีแถวหัวคอลัมน์ เช่น วันที่แจ้ง, หน่วยงาน, ตำแหน่ง`,
+        );
         setRows([]);
         setFileName(null);
         return;
@@ -77,12 +82,15 @@ export function RecruitmentDashboard() {
       const b = dateBounds(parsed);
       setFrom(b.min);
       setTo(b.max);
-    } catch {
-      setParseError("อ่านไฟล์ Excel ไม่สำเร็จ");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "unknown";
+      setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
       setRows([]);
       setFileName(null);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
     }
-    e.target.value = "";
   }
 
   const departments = useMemo(() => ["ทั้งหมด", ...uniqueDepartments(rows)], [rows]);
@@ -107,9 +115,11 @@ export function RecruitmentDashboard() {
         </p>
         <label className="mt-8 inline-flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm hover:border-red-500 hover:bg-red-50/50">
           <span className="text-4xl">📊</span>
-          <span className="text-base font-semibold text-red-700">เลือกไฟล์ Excel</span>
+          <span className="text-base font-semibold text-red-700">
+            {uploading ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel"}
+          </span>
           <span className="max-w-md text-sm text-slate-600">
-            แถวแรกเป็นหัวคอลัมน์ เช่น candidate_id, position, department, applied_date, stage, source
+            รองรับหัวคอลัมน์ไทย เช่น วันที่แจ้ง, หน่วยงาน, ตำแหน่ง, สถานะ (หัวตารางไม่ต้องอยู่แถวแรก)
           </span>
           <input
             type="file"
