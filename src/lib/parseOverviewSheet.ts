@@ -140,7 +140,14 @@ function isDataRow(rec: Record<string, unknown>, row: RateRequestRow): boolean {
   return filled >= 2;
 }
 
-function parseSheet(sheet: XLSX.WorkSheet): RateRequestRow[] {
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function parseSheet(
+  sheet: XLSX.WorkSheet,
+  onProgress?: (ratio: number) => void,
+): RateRequestRow[] {
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
     defval: "",
@@ -172,8 +179,12 @@ function parseSheet(sheet: XLSX.WorkSheet): RateRequestRow[] {
   const headerCells = (matrix[headerRowIndex] ?? []).map((c) => canonicalHeader(String(c ?? "")));
   const dataRows = matrix.slice(headerRowIndex + 1);
   const result: RateRequestRow[] = [];
+  onProgress?.(0.25);
 
   for (let i = 0; i < dataRows.length; i++) {
+    if (onProgress && dataRows.length > 0 && (i === 0 || i % 25 === 0 || i === dataRows.length - 1)) {
+      onProgress(0.25 + (0.75 * (i + 1)) / dataRows.length);
+    }
     const line = dataRows[i] ?? [];
     const rec: Record<string, unknown> = {};
     let filled = 0;
@@ -192,6 +203,7 @@ function parseSheet(sheet: XLSX.WorkSheet): RateRequestRow[] {
     if (!isDataRow(rec, row)) continue;
     result.push(row);
   }
+  onProgress?.(1);
   return result;
 }
 
@@ -210,13 +222,27 @@ export type OverviewParseResult = {
   rawRowCount: number;
 };
 
-export function parseOverviewExcel(buffer: ArrayBuffer): OverviewParseResult {
+/** ratio 0–1 ภายในขั้นตอน parse */
+export async function parseOverviewExcel(
+  buffer: ArrayBuffer,
+  onProgress?: (ratio: number) => void,
+): Promise<OverviewParseResult> {
+  onProgress?.(0);
+  await yieldToMain();
+
   const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  onProgress?.(0.12);
+  await yieldToMain();
+
   const sheetName = findOverviewSheetName(wb.SheetNames);
   const sheet = wb.Sheets[sheetName];
   if (!sheet) {
+    onProgress?.(1);
     return { rows: [], sheetName: "", rawRowCount: 0 };
   }
+
+  onProgress?.(0.2);
+  await yieldToMain();
 
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
@@ -224,8 +250,16 @@ export function parseOverviewExcel(buffer: ArrayBuffer): OverviewParseResult {
     blankrows: false,
   }) as unknown[][];
 
+  onProgress?.(0.35);
+  await yieldToMain();
+
+  const rows = parseSheet(sheet, (rowRatio) => {
+    onProgress?.(0.35 + rowRatio * 0.65);
+  });
+
+  onProgress?.(1);
   return {
-    rows: parseSheet(sheet),
+    rows,
     sheetName,
     rawRowCount: matrix.length,
   };

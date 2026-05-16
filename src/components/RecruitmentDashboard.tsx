@@ -6,25 +6,59 @@ import { parseOverviewExcel } from "@/lib/parseOverviewSheet";
 import type { KpiReport, MonthlyKpiRow, PendingItem, StatusCount } from "@/lib/rateRequestTypes";
 import { KPI_TARGET_DAYS } from "@/lib/rateRequestTypes";
 
+const PROGRESS = {
+  readEnd: 70,
+  parseEnd: 95,
+  done: 100,
+} as const;
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** ratio 0–1 ของการอ่านไฟล์จากเครื่อง (bytes จริงจาก FileReader) */
 function readFileWithProgress(
   file: File,
-  onProgress: (percent: number, label: string) => void,
+  onProgress: (ratio: number, label: string) => void,
 ): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    const total = file.size;
+
+    reader.onloadstart = () => {
+      onProgress(0, `กำลังอ่านไฟล์… 0 / ${formatBytes(total)}`);
+    };
+
     reader.onprogress = (ev) => {
       if (ev.lengthComputable && ev.total > 0) {
-        const pct = Math.min(60, Math.round((ev.loaded / ev.total) * 60));
-        onProgress(pct, "กำลังโหลดไฟล์จากเครื่อง…");
+        const ratio = ev.loaded / ev.total;
+        onProgress(
+          ratio,
+          `กำลังอ่านไฟล์… ${formatBytes(ev.loaded)} / ${formatBytes(ev.total)} (${Math.round(ratio * 100)}%)`,
+        );
+      } else if (total > 0) {
+        const ratio = Math.min(1, ev.loaded / total);
+        onProgress(
+          ratio,
+          `กำลังอ่านไฟล์… ${formatBytes(ev.loaded)} / ${formatBytes(total)} (${Math.round(ratio * 100)}%)`,
+        );
       }
     };
+
     reader.onload = () => {
-      onProgress(60, "โหลดไฟล์เสร็จ");
+      onProgress(1, `อ่านไฟล์เสร็จ ${formatBytes(total)}`);
       resolve(reader.result as ArrayBuffer);
     };
+
     reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
     reader.readAsArrayBuffer(file);
   });
+}
+
+function mapProgress(phaseRatio: number, phaseStart: number, phaseEnd: number): number {
+  return Math.round(phaseStart + phaseRatio * (phaseEnd - phaseStart));
 }
 
 function UploadProgress({ percent, label }: { percent: number; label: string }) {
@@ -298,17 +332,26 @@ export function RecruitmentDashboard() {
     setUploadPercent(0);
     setUploadLabel("เริ่มต้น…");
     try {
-      const buffer = await readFileWithProgress(file, (pct, label) => {
-        setUploadPercent(pct);
+      const buffer = await readFileWithProgress(file, (ratio, label) => {
+        setUploadPercent(mapProgress(ratio, 0, PROGRESS.readEnd));
         setUploadLabel(label);
       });
-      await new Promise((r) => setTimeout(r, 0));
-      setUploadPercent(70);
-      setUploadLabel("กำลังอ่านชีต ภาพรวม…");
-      await new Promise((r) => setTimeout(r, 0));
-      const result = parseOverviewExcel(buffer);
-      setUploadPercent(90);
+
+      const result = await parseOverviewExcel(buffer, (ratio) => {
+        setUploadPercent(mapProgress(ratio, PROGRESS.readEnd, PROGRESS.parseEnd));
+        setUploadLabel(
+          ratio < 0.35
+            ? "กำลังเปิดไฟล์ Excel…"
+            : ratio < 1
+              ? `กำลังอ่านชีต ภาพรวม… ${Math.round(ratio * 100)}%`
+              : "อ่านข้อมูลเสร็จ",
+        );
+      });
+
+      setUploadPercent(mapProgress(0.5, PROGRESS.parseEnd, PROGRESS.done));
       setUploadLabel("กำลังคำนวณ KPI…");
+      await new Promise((r) => setTimeout(r, 0));
+
       if (!result.rows.length) {
         setParseError(
           `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
@@ -321,8 +364,8 @@ export function RecruitmentDashboard() {
       setReport(computeKpiReport(result.rows));
       setFileName(file.name);
       setSheetName(result.sheetName);
-      setUploadPercent(100);
-      setUploadLabel("เสร็จสมบูรณ์");
+      setUploadPercent(PROGRESS.done);
+      setUploadLabel("เสร็จสมบูรณ์ 100%");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
       setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
