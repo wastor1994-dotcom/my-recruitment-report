@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { formatLocalIso } from "./dates";
+import { formatLocalIso, parseThaiDateParts } from "./dates";
 import type { RateRequestRow } from "./rateRequestTypes";
 
 /** หัวคอลัมน์ชีต ภาพรวม — แต่ละคอลัมน์มี key ไม่ซ้ำกัน */
@@ -70,10 +70,7 @@ function excelCellToIso(v: unknown): string | null {
   if (!s) return null;
   const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
   if (dmy) {
-    let y = Number(dmy[3]);
-    if (y < 100) y += 2000;
-    if (y > 2400) y -= 543;
-    return `${y}-${String(Number(dmy[2])).padStart(2, "0")}-${String(Number(dmy[1])).padStart(2, "0")}`;
+    return parseThaiDateParts(Number(dmy[1]), Number(dmy[2]), Number(dmy[3]));
   }
   const t = Date.parse(s);
   if (!Number.isNaN(t)) return formatLocalIso(new Date(t));
