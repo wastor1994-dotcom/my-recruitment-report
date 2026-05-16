@@ -429,14 +429,20 @@ export function RecruitmentDashboard() {
       setUploadPercent(70);
       setUploadLabel(T.parsingSheet);
       await new Promise((r) => setTimeout(r, 0));
-      const result = parseOverviewExcel(buffer);
+      const result = await parseOverviewExcel(buffer, (ratio) => {
+        setUploadPercent(70 + Math.round(ratio * 20));
+      });
       setUploadPercent(90);
       setUploadLabel(T.computingKpi);
       if (!result.rows.length) {
         setParseError(
-          `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
+          T.parseNoDataPrefix +
+            (result.sheetName || T.uploadPageTitleParts.sheetName) +
+            T.parseNoDataMid +
+            result.rawRowCount +
+            T.parseNoDataSuffix,
         );
-        setReport(null);
+                setReport(null);
         setSourceRows([]);
         setFileName(null);
         setSheetName(null);
@@ -450,8 +456,8 @@ export function RecruitmentDashboard() {
       setUploadLabel(T.done);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
-      setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
-      setReport(null);
+      setParseError(T.parseExcelFailedPrefix + msg + T.parseExcelFailedSuffix);
+            setReport(null);
       setSourceRows([]);
       setFileName(null);
     } finally {
@@ -477,9 +483,9 @@ export function RecruitmentDashboard() {
   const uploadOverlay = uploading ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border-2 border-red-200 bg-white p-8 shadow-xl">
-        <p className="mb-4 text-center text-lg font-semibold text-red-800">กำลังประมวลผลไฟล์</p>
+        <p className="mb-4 text-center text-lg font-semibold text-red-800">{T.processingFile}</p>
         <UploadProgress percent={uploadPercent} label={uploadLabel} />
-        <p className="mt-3 text-center text-xs text-slate-500">ไฟล์ใหญ่อาจใช้เวลาสักครู่ กรุณารอสักครู่</p>
+        <p className="mt-3 text-center text-xs text-slate-500">{T.waitSameMachine}</p>
       </div>
     </div>
   ) : null;
