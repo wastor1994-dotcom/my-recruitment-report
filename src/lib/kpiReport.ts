@@ -8,27 +8,6 @@ import type {
 } from "./rateRequestTypes";
 import { KPI_TARGET_DAYS } from "./rateRequestTypes";
 
-const CLOSED_STATUS_KEYWORDS = [
-  "เริ่มงาน",
-  "ปิดแล้ว",
-  "ปิดใบ",
-  "ปิดงาน",
-  "เสร็จสิ้น",
-  "เสร็จ",
-  "closed",
-  "completed",
-];
-
-const PENDING_STATUS_KEYWORDS = [
-  "รอดาต้า",
-  "รอสัมภาษณ์",
-  "รอผลสัมภาษณ์",
-  "รอเริ่มงาน",
-  "ค้าง",
-  "ดำเนินการ",
-  "pending",
-];
-
 function monthKey(iso: string): string {
   const d = new Date(iso + "T12:00:00");
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -65,60 +44,34 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** วันที่ปิดจริง — ใช้ วันที่ปิด ก่อน แล้วค่อย วันที่เริ่มงาน */
-export function effectiveCloseDate(row: RateRequestRow): string | null {
-  return row.close_date ?? row.start_date ?? null;
+/** ตรง Pivot: อ่านจากคอลัมน์ KPI — Pass / Fail / N/A (ค้าง) */
+export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
+  const k = row.kpi_raw.trim().toLowerCase();
+  if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
+  if (k.includes("fail") || k.includes("ไม่ผ่าน")) return "fail";
+  return "pending";
 }
 
-/** รับเข้าทำงาน = มีชื่อพนักงานเริ่มงาน หรือ วันที่เริ่มงาน หรือสถานะเริ่มงาน */
+/** ตรง Pivot คอลัมน์ จำนวนปิดใบขอ — มีชื่อพนักงานเริ่มงาน หรือ วันที่เริ่มงาน */
 export function isHired(row: RateRequestRow): boolean {
-  if (row.hire_name.trim()) return true;
-  if (row.start_date) return true;
-  const s = row.status_raw.trim();
-  return s.includes("เริ่มงาน");
+  return Boolean(row.hire_name.trim()) || Boolean(row.start_date);
 }
 
-export function isRequestClosed(row: RateRequestRow): boolean {
-  if (isHired(row)) return true;
-  if (row.close_date) return true;
-  const kpi = row.kpi_raw.trim().toLowerCase();
-  if (kpi.includes("pass") || kpi.includes("fail") || kpi.includes("ผ่าน") || kpi.includes("ไม่ผ่าน")) {
-    return true;
-  }
-  const s = row.status_raw.trim().toLowerCase();
-  if (CLOSED_STATUS_KEYWORDS.some((k) => s.includes(k.toLowerCase()))) return true;
-  if (PENDING_STATUS_KEYWORDS.some((k) => s.includes(k.toLowerCase()))) return false;
+export function effectiveCloseDate(row: RateRequestRow): string | null {
+  return row.start_date ?? row.close_date ?? null;
+}
+
+/** ใบขอที่ยังค้าง = KPI เป็น N/A / ว่าง (ตรง Pivot) */
+export function isPending(row: RateRequestRow): boolean {
+  return getKpiBucket(row) === "pending";
+}
+
+/** ค้างเกินกำหนด — ใช้คอลัมน์ ระยะเวลาสรรหา ก่อน แล้วค่อยคำนวณจากวันที่แจ้ง */
+export function isPendingOverdue(row: RateRequestRow): boolean {
+  if (!isPending(row)) return false;
+  if (row.recruitment_days != null) return row.recruitment_days > KPI_TARGET_DAYS;
+  if (row.date_notified) return daysBetween(row.date_notified, todayIso()) > KPI_TARGET_DAYS;
   return false;
-}
-
-function classifyPassFail(row: RateRequestRow): "pass" | "fail" | null {
-  if (!isRequestClosed(row)) return null;
-
-  const kpi = row.kpi_raw.trim().toLowerCase();
-  if (kpi.includes("pass") || kpi === "p" || kpi.includes("ผ่าน")) return "pass";
-  if (kpi.includes("fail") || kpi.includes("ไม่ผ่าน") || kpi.includes("ไม่ผ่าน")) return "fail";
-
-  if (row.recruitment_days != null) {
-    return row.recruitment_days <= KPI_TARGET_DAYS ? "pass" : "fail";
-  }
-
-  const end = effectiveCloseDate(row);
-  if (row.date_notified && end) {
-    const days = daysBetween(row.date_notified, end);
-    return days <= KPI_TARGET_DAYS ? "pass" : "fail";
-  }
-
-  return null;
-}
-
-function recruitmentDuration(row: RateRequestRow): number | null {
-  if (row.recruitment_days != null) return row.recruitment_days;
-  if (!row.date_notified) return null;
-  if (isRequestClosed(row)) {
-    const end = effectiveCloseDate(row);
-    if (end) return daysBetween(row.date_notified, end);
-  }
-  return daysBetween(row.date_notified, todayIso());
 }
 
 function emptyMonth(key: string): MonthlyKpiRow {
@@ -130,15 +83,12 @@ function emptyMonth(key: string): MonthlyKpiRow {
     pass: 0,
     fail: 0,
     pending: 0,
+    pending_over_15: 0,
+    pending_under_15: 0,
   };
 }
 
-function addPassFail(entry: MonthlyKpiRow, row: RateRequestRow) {
-  const pf = classifyPassFail(row);
-  if (pf === "pass") entry.pass += 1;
-  else if (pf === "fail") entry.fail += 1;
-}
-
+/** รายเดือนตาม วันที่แจ้ง — ตรง Pivot Row Labels */
 function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
@@ -150,24 +100,27 @@ function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
       entry = emptyMonth(key);
       map.set(key, entry);
     }
-    entry.total_notified += 1;
 
-    if (isRequestClosed(row)) {
-      entry.closed_total += 1;
-      addPassFail(entry, row);
-    } else {
+    const bucket = getKpiBucket(row);
+    if (bucket === "pass") entry.pass += 1;
+    else if (bucket === "fail") entry.fail += 1;
+    else {
       entry.pending += 1;
+      if (isPendingOverdue(row)) entry.pending_over_15 += 1;
+      else entry.pending_under_15 += 1;
     }
+    entry.total_notified = entry.pass + entry.fail + entry.pending;
   }
 
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
-function buildMonthlyByClose(rows: RateRequestRow[]): MonthlyKpiRow[] {
+/** จำนวนปิดใบขอรายเดือน — ตามเดือน วันที่เริ่มงาน/ปิด */
+function buildMonthlyHired(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
   for (const row of rows) {
-    if (!isRequestClosed(row)) continue;
+    if (!isHired(row)) continue;
     const closeIso = effectiveCloseDate(row);
     if (!closeIso) continue;
 
@@ -178,43 +131,42 @@ function buildMonthlyByClose(rows: RateRequestRow[]): MonthlyKpiRow[] {
       map.set(key, entry);
     }
     entry.closed_total += 1;
-    addPassFail(entry, row);
+    const bucket = getKpiBucket(row);
+    if (bucket === "pass") entry.pass += 1;
+    else if (bucket === "fail") entry.fail += 1;
   }
 
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
 function buildGrandTotal(rows: RateRequestRow[]): KpiGrandTotal {
+  const withDate = rows.filter((r) => r.date_notified);
   let total_pass = 0;
   let total_fail = 0;
-  let total_closed = 0;
   let total_pending = 0;
   let total_hired = 0;
   let pending_over_15 = 0;
   let pending_under_15 = 0;
 
-  for (const row of rows) {
-    if (isHired(row)) total_hired += 1;
-
-    if (isRequestClosed(row)) {
-      total_closed += 1;
-      const pf = classifyPassFail(row);
-      if (pf === "pass") total_pass += 1;
-      else if (pf === "fail") total_fail += 1;
-    } else if (row.date_notified || row.status_raw) {
+  for (const row of withDate) {
+    const bucket = getKpiBucket(row);
+    if (bucket === "pass") total_pass += 1;
+    else if (bucket === "fail") total_fail += 1;
+    else {
       total_pending += 1;
-      const backlog = recruitmentDuration(row) ?? 0;
-      if (backlog > KPI_TARGET_DAYS) pending_over_15 += 1;
+      if (isPendingOverdue(row)) pending_over_15 += 1;
       else pending_under_15 += 1;
     }
+    if (isHired(row)) total_hired += 1;
   }
 
   return {
     total_rows: rows.length,
-    total_notified: rows.filter((r) => r.date_notified).length,
+    total_requests: withDate.length,
+    total_notified: withDate.length,
     total_hired,
     total_pending,
-    total_closed,
+    total_closed: total_hired,
     total_pass,
     total_fail,
     pending_over_15,
@@ -224,9 +176,11 @@ function buildGrandTotal(rows: RateRequestRow[]): KpiGrandTotal {
 
 function buildPendingItems(rows: RateRequestRow[]): PendingItem[] {
   return rows
-    .filter((r) => !isRequestClosed(r) && (r.date_notified || r.status_raw))
+    .filter((r) => isPending(r))
     .map((r) => {
-      const backlog_days = recruitmentDuration(r) ?? 0;
+      const backlog_days =
+        r.recruitment_days ??
+        (r.date_notified ? daysBetween(r.date_notified, todayIso()) : 0);
       return {
         id: r.id,
         unit: r.unit || "—",
@@ -234,7 +188,7 @@ function buildPendingItems(rows: RateRequestRow[]): PendingItem[] {
         date_notified: r.date_notified || "—",
         backlog_days,
         status_raw: r.status_raw || "—",
-        over_15: backlog_days > KPI_TARGET_DAYS,
+        over_15: isPendingOverdue(r),
       };
     })
     .sort((a, b) => b.backlog_days - a.backlog_days);
@@ -255,7 +209,7 @@ export function computeKpiReport(rows: RateRequestRow[]): KpiReport {
   return {
     grand: buildGrandTotal(rows),
     monthly: buildMonthlyByNotified(rows),
-    monthly_by_close: buildMonthlyByClose(rows),
+    monthly_by_close: buildMonthlyHired(rows),
     pending_items: buildPendingItems(rows),
     status_counts: buildStatusCounts(rows),
   };

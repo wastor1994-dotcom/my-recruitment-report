@@ -133,6 +133,7 @@ function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): RateRequ
 }
 
 function isDataRow(rec: Record<string, unknown>, row: RateRequestRow): boolean {
+  if (row.seq_no) return true;
   if (row.date_notified || row.unit || row.position || row.status_raw || row.hire_name) return true;
   if (row.start_date || row.close_date) return true;
   const filled = Object.values(rec).filter((v) => v != null && String(v).trim() !== "").length;

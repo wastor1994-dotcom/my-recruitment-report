@@ -71,12 +71,12 @@ function MonthlyTable({
   title,
   subtitle,
   rows,
-  showNotified,
+  pivotStyle,
 }: {
   title: string;
   subtitle: string;
   rows: MonthlyKpiRow[];
-  showNotified?: boolean;
+  pivotStyle?: boolean;
 }) {
   const totals = rows.reduce(
     (acc, r) => ({
@@ -85,9 +85,67 @@ function MonthlyTable({
       pass: acc.pass + r.pass,
       fail: acc.fail + r.fail,
       pending: acc.pending + r.pending,
+      pending_over_15: acc.pending_over_15 + r.pending_over_15,
+      pending_under_15: acc.pending_under_15 + r.pending_under_15,
     }),
-    { total_notified: 0, closed_total: 0, pass: 0, fail: 0, pending: 0 },
+    {
+      total_notified: 0,
+      closed_total: 0,
+      pass: 0,
+      fail: 0,
+      pending: 0,
+      pending_over_15: 0,
+      pending_under_15: 0,
+    },
   );
+
+  if (pivotStyle) {
+    return (
+      <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
+        <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
+          <h3 className="text-lg font-bold text-red-800">{title}</h3>
+          <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-red-100 bg-white text-slate-700">
+                <th className="px-4 py-3 font-semibold">เดือน (วันที่แจ้ง)</th>
+                <th className="px-4 py-3 font-semibold text-right text-emerald-800">Pass</th>
+                <th className="px-4 py-3 font-semibold text-right text-red-800">Fail</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างเกิน {KPI_TARGET_DAYS} วัน</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างยังไม่เกิน</th>
+                <th className="px-4 py-3 font-semibold text-right">รวม</th>
+                <th className="px-4 py-3 font-semibold text-right">จำนวนค้าง</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
+                  <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{r.pass}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-red-700">{r.fail}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-800">{r.pending_over_15}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">{r.pending_under_15}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold">{r.total_notified}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">{r.pending}</td>
+                </tr>
+              ))}
+              <tr className="bg-red-50 font-bold text-red-900">
+                <td className="px-4 py-3">Grand Total</td>
+                <td className="px-4 py-3 text-right tabular-nums text-emerald-800">{totals.pass}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-red-800">{totals.fail}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{totals.pending_over_15}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{totals.pending_under_15}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{totals.total_notified}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{totals.pending}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
@@ -96,45 +154,25 @@ function MonthlyTable({
         <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
+        <table className="w-full min-w-[480px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 bg-white text-slate-700">
-              <th className="px-4 py-3 font-semibold">เดือน</th>
-              {showNotified ? <th className="px-4 py-3 font-semibold text-right">แจ้งทั้งหมด</th> : null}
-              <th className="px-4 py-3 font-semibold text-right">ปิดทั้งหมด</th>
-              <th className="px-4 py-3 font-semibold text-right">Pass</th>
-              <th className="px-4 py-3 font-semibold text-right">Fail</th>
-              {showNotified ? <th className="px-4 py-3 font-semibold text-right">คงค้าง</th> : null}
+              <th className="px-4 py-3 font-semibold">เดือน (วันที่เริ่มงาน)</th>
+              <th className="px-4 py-3 font-semibold text-right">จำนวนปิดใบขอ</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
                 <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
-                {showNotified ? (
-                  <td className="px-4 py-3 text-right tabular-nums">{r.total_notified}</td>
-                ) : null}
                 <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
                   {r.closed_total}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{r.pass}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-red-700">{r.fail}</td>
-                {showNotified ? (
-                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">{r.pending}</td>
-                ) : null}
               </tr>
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
-              <td className="px-4 py-3">รวมทุกเดือน</td>
-              {showNotified ? (
-                <td className="px-4 py-3 text-right tabular-nums">{totals.total_notified}</td>
-              ) : null}
+              <td className="px-4 py-3">Grand Total</td>
               <td className="px-4 py-3 text-right tabular-nums">{totals.closed_total}</td>
-              <td className="px-4 py-3 text-right tabular-nums text-emerald-800">{totals.pass}</td>
-              <td className="px-4 py-3 text-right tabular-nums text-red-800">{totals.fail}</td>
-              {showNotified ? (
-                <td className="px-4 py-3 text-right tabular-nums text-amber-800">{totals.pending}</td>
-              ) : null}
             </tr>
           </tbody>
         </table>
@@ -379,14 +417,13 @@ export function RecruitmentDashboard() {
             <h2 className="text-lg font-bold text-white">สรุปภาพรวมทุกเดือน</h2>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-            <MetricCard label="รายการทั้งหมด" value={grand.total_rows.toLocaleString("th-TH")} sub="แถวในชีต ภาพรวม" />
-            <MetricCard label="ใบขอแจ้ง (มีวันที่แจ้ง)" value={grand.total_notified.toLocaleString("th-TH")} />
+            <MetricCard label="ใบขอรวม" value={grand.total_requests.toLocaleString("th-TH")} sub="ตรง Pivot Grand Total" />
             <MetricCard
-              label="รับเข้าทำงาน"
+              label="ปิดใบขอทั้งหมด"
               value={grand.total_hired.toLocaleString("th-TH")}
               sub="ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน"
             />
-            <MetricCard label="ปิดได้แล้ว" value={grand.total_closed.toLocaleString("th-TH")} />
+            <MetricCard label="ค้าง (KPI N/A)" value={grand.total_pending.toLocaleString("th-TH")} />
             <MetricCard
               label="Pass (≤15 วัน)"
               value={grand.total_pass.toLocaleString("th-TH")}
@@ -397,19 +434,17 @@ export function RecruitmentDashboard() {
               value={grand.total_fail.toLocaleString("th-TH")}
               sub="ปิดเกิน KPI"
             />
-            <MetricCard label="คงค้างทั้งหมด" value={grand.total_pending.toLocaleString("th-TH")} />
             <MetricCard
               label="ค้างเกิน / ไม่เกิน 15 วัน"
               value={`${grand.pending_over_15} / ${grand.pending_under_15}`}
-              sub="ใบขอที่ยังไม่ปิด"
+              sub="จากคอลัมน์ ระยะเวลาสรรหา"
             />
           </div>
           <div className="border-t border-red-100 bg-red-50/80 px-5 py-4">
             <p className="text-sm text-slate-800">
-              <span className="font-bold text-red-800">บรรทัดสรุป:</span> รับเข้าทำงาน {grand.total_hired} คน | ปิดได้{" "}
-              {grand.total_closed} ใบ (<PassFailBadge pass={grand.total_pass} fail={grand.total_fail} />) | คงค้าง{" "}
-              {grand.total_pending} ใบ (เกิน {KPI_TARGET_DAYS} วัน {grand.pending_over_15} ใบ, ยังไม่เกิน{" "}
-              {grand.pending_under_15} ใบ)
+              <span className="font-bold text-red-800">บรรทัดสรุป:</span> ใบขอรวม {grand.total_requests} | ปิดใบขอ{" "}
+              {grand.total_hired} | ค้าง {grand.total_pending} (เกิน {grand.pending_over_15} / ยังไม่เกิน{" "}
+              {grand.pending_under_15}) | KPI (<PassFailBadge pass={grand.total_pass} fail={grand.total_fail} />)
             </p>
           </div>
         </section>
@@ -418,15 +453,15 @@ export function RecruitmentDashboard() {
           <StatusTable rows={report.status_counts} />
 
           <MonthlyTable
-            title="รายเดือน (ตามเดือนที่แจ้งใบขอ)"
-            subtitle={`ในแต่ละเดือน: ปิดได้กี่ใบ แบ่ง Pass/Fail (KPI ${KPI_TARGET_DAYS} วัน) และเหลือค้างกี่ใบ`}
+            title="สรุปรายเดือน (ตาม Pivot — เดือนวันที่แจ้ง)"
+            subtitle="Pass/Fail จากคอลัมน์ KPI | ค้าง = N/A แยกเกิน/ไม่เกิน 15 วัน จาก ระยะเวลาสรรหา"
             rows={report.monthly}
-            showNotified
+            pivotStyle
           />
 
           <MonthlyTable
-            title="รายเดือน (ตามเดือนที่ปิดใบขอ)"
-            subtitle={`ใบที่ปิดในเดือนนั้น — Pass = ปิดภายใน ${KPI_TARGET_DAYS} วัน, Fail = ปิดเกิน ${KPI_TARGET_DAYS} วัน`}
+            title="จำนวนปิดใบขอรายเดือน"
+            subtitle="นับตามเดือน วันที่เริ่มงาน (ตรงคอลัมน์ จำนวนปิดใบขอ ใน Pivot)"
             rows={report.monthly_by_close}
           />
 
