@@ -57,21 +57,38 @@ function canonicalHeader(raw: string): string {
   return OVERVIEW_ALIASES[h] ?? h;
 }
 
+/** แปลง Excel serial เป็นปฏิทิน (ตรงกับ Pivot — ไม่ผ่าน timezone) */
+function excelSerialToIso(n: number): string | null {
+  if (!Number.isFinite(n) || n < 1) return null;
+  const d = XLSX.SSF.parse_date_code(n);
+  if (!d?.y) return null;
+  return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+}
+
 function excelCellToIso(v: unknown): string | null {
   if (v == null || v === "") return null;
-  if (v instanceof Date && !Number.isNaN(v.getTime())) {
-    return formatLocalIso(v);
+
+  if (typeof v === "number") {
+    return excelSerialToIso(v);
   }
-  if (typeof v === "number" && v > 1000) {
-    const d = XLSX.SSF.parse_date_code(v);
-    return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-  }
+
   const s = String(v).trim();
   if (!s) return null;
+
+  const asNum = Number(s);
+  if (Number.isFinite(asNum) && asNum > 30000 && !s.includes("/")) {
+    return excelSerialToIso(asNum);
+  }
+
   const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
   if (dmy) {
     return parseThaiDateParts(Number(dmy[1]), Number(dmy[2]), Number(dmy[3]));
   }
+
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    return formatLocalIso(v);
+  }
+
   const t = Date.parse(s);
   if (!Number.isNaN(t)) return formatLocalIso(new Date(t));
   return null;
@@ -253,7 +270,8 @@ export async function parseOverviewExcel(
   onProgress?.(0);
   await yieldToMain();
 
-  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  // cellDates: false → ได้เลข serial ตรงกับ Excel/Pivot (ไม่เลื่อนเดือนบน Vercel UTC)
+  const wb = XLSX.read(buffer, { type: "array", cellDates: false });
   onProgress?.(0.12);
   await yieldToMain();
 

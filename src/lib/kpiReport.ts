@@ -54,18 +54,16 @@ export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   const k = normalizeKpi(row.kpi_raw);
   if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
   if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
-  if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a")) {
-    if (isHired(row)) {
-      if (row.recruitment_days != null) {
-        return row.recruitment_days <= KPI_TARGET_DAYS ? "pass" : "fail";
-      }
-      return "fail";
-    }
+  // ตรง Pivot: ค่าว่าง / N/A / - = ค้าง (ไม่เปลี่ยนเป็น Pass/Fail แม้มีวันที่เริ่มงาน)
+  if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a") || k === "ค้าง") {
     return "pending";
   }
   const status = row.status_raw.trim().toLowerCase();
   if (status.includes("ค้าง") || status.includes("รอสรรหา") || status.includes("รอ")) {
     return "pending";
+  }
+  if (isHired(row) && row.recruitment_days != null) {
+    return row.recruitment_days <= KPI_TARGET_DAYS ? "pass" : "fail";
   }
   return "pending";
 }
@@ -81,7 +79,7 @@ export function isPending(row: RateRequestRow): boolean {
 
 /** ค้างเกินกำหนด — ใช้คอลัมน์ ระยะเวลาสรรหา ก่อน แล้วค่อยคำนวณจากวันที่แจ้ง */
 export function isPendingOverdue(row: RateRequestRow): boolean {
-  if (!isPending(row)) return false;
+  if (getKpiBucket(row) !== "pending") return false;
   if (row.recruitment_days != null) return row.recruitment_days > KPI_TARGET_DAYS;
   if (row.date_notified) return daysBetween(row.date_notified, todayLocalIso()) > KPI_TARGET_DAYS;
   return false;
