@@ -40,6 +40,44 @@ const tooltipStyle = {
   fontSize: "14px",
 };
 
+function readFileWithProgress(
+  file: File,
+  onProgress: (percent: number, label: string) => void,
+): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onprogress = (ev) => {
+      if (ev.lengthComputable && ev.total > 0) {
+        const pct = Math.min(60, Math.round((ev.loaded / ev.total) * 60));
+        onProgress(pct, "กำลังโหลดไฟล์จากเครื่อง…");
+      }
+    };
+    reader.onload = () => {
+      onProgress(60, "โหลดไฟล์เสร็จ");
+      resolve(reader.result as ArrayBuffer);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function UploadProgress({ percent, label }: { percent: number; label: string }) {
+  return (
+    <div className="w-full max-w-md">
+      <div className="mb-2 flex items-center justify-between text-sm text-slate-700">
+        <span>{label}</span>
+        <span className="font-bold tabular-nums text-red-700">{percent}%</span>
+      </div>
+      <div className="h-3 w-full overflow-hidden rounded-full bg-red-100">
+        <div
+          className="h-full rounded-full bg-red-600 transition-[width] duration-300 ease-out"
+          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border-2 border-red-100 bg-white p-5 shadow-sm">
@@ -55,6 +93,8 @@ export function RecruitmentDashboard() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [uploadLabel, setUploadLabel] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [dept, setDept] = useState("ทั้งหมด");
@@ -65,9 +105,20 @@ export function RecruitmentDashboard() {
     if (!file) return;
     setParseError(null);
     setUploading(true);
+    setUploadPercent(0);
+    setUploadLabel("เริ่มต้น…");
     try {
-      const buffer = await file.arrayBuffer();
+      const buffer = await readFileWithProgress(file, (pct, label) => {
+        setUploadPercent(pct);
+        setUploadLabel(label);
+      });
+      await new Promise((r) => setTimeout(r, 0));
+      setUploadPercent(70);
+      setUploadLabel("กำลังอ่านข้อมูล Excel…");
+      await new Promise((r) => setTimeout(r, 0));
       const result = parseRecruitmentExcel(buffer);
+      setUploadPercent(90);
+      setUploadLabel("กำลังจัดเตรียมรายงาน…");
       const parsed = result.rows;
       if (!parsed.length) {
         setParseError(
@@ -82,16 +133,33 @@ export function RecruitmentDashboard() {
       const b = dateBounds(parsed);
       setFrom(b.min);
       setTo(b.max);
+      setUploadPercent(100);
+      setUploadLabel("เสร็จสมบูรณ์");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
       setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
       setRows([]);
       setFileName(null);
     } finally {
-      setUploading(false);
       e.target.value = "";
+      setTimeout(() => {
+        setUploading(false);
+        setUploadPercent(0);
+        setUploadLabel("");
+      }, 500);
     }
   }
+
+  const uploadOverlay =
+    uploading ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-lg rounded-2xl border-2 border-red-200 bg-white p-8 shadow-xl">
+          <p className="mb-4 text-center text-lg font-semibold text-red-800">กำลังประมวลผลไฟล์</p>
+          <UploadProgress percent={uploadPercent} label={uploadLabel} />
+          <p className="mt-3 text-center text-xs text-slate-500">ไฟล์ใหญ่อาจใช้เวลาสักครู่ กรุณารอสักครู่</p>
+        </div>
+      </div>
+    ) : null;
 
   const departments = useMemo(() => ["ทั้งหมด", ...uniqueDepartments(rows)], [rows]);
   const positions = useMemo(() => ["ทั้งหมด", ...uniquePositions(rows)], [rows]);
@@ -108,12 +176,18 @@ export function RecruitmentDashboard() {
 
   if (!rows.length) {
     return (
+      <>
+        {uploadOverlay}
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <h1 className="text-3xl font-bold text-red-800">Recruitment Report</h1>
         <p className="mt-3 text-lg text-slate-700">
           อัปโหลดไฟล์ Excel (.xlsx / .xls) เพื่อดูสรุปตัวเลขและกราฟ
         </p>
-        <label className="mt-8 inline-flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm hover:border-red-500 hover:bg-red-50/50">
+        <label
+          className={`mt-8 inline-flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm ${
+            uploading ? "pointer-events-none opacity-60" : "cursor-pointer hover:border-red-500 hover:bg-red-50/50"
+          }`}
+        >
           <span className="text-4xl">📊</span>
           <span className="text-base font-semibold text-red-700">
             {uploading ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel"}
@@ -130,10 +204,13 @@ export function RecruitmentDashboard() {
         </label>
         {parseError ? <p className="mt-4 text-sm font-medium text-red-600">{parseError}</p> : null}
       </div>
+      </>
     );
   }
 
   return (
+    <>
+      {uploadOverlay}
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8 flex flex-col gap-4 border-b-2 border-red-100 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -142,9 +219,15 @@ export function RecruitmentDashboard() {
             ไฟล์: <span className="font-semibold text-red-700">{fileName}</span>
           </p>
         </div>
-        <label className="inline-flex cursor-pointer rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700">
-          เปลี่ยนไฟล์ Excel
-          <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} />
+        <label
+          className={`inline-flex rounded-xl px-5 py-2.5 text-sm font-semibold text-white ${
+            uploading
+              ? "pointer-events-none bg-red-400"
+              : "cursor-pointer bg-red-600 hover:bg-red-700"
+          }`}
+        >
+          {uploading ? "กำลังโหลด…" : "เปลี่ยนไฟล์ Excel"}
+          <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} disabled={uploading} />
         </label>
       </header>
 
@@ -308,5 +391,6 @@ export function RecruitmentDashboard() {
         </main>
       </div>
     </div>
+    </>
   );
 }
