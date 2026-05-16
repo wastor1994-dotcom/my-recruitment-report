@@ -8,6 +8,7 @@
 }
 
 body {
+  font-family: var(--font-noto-thai), var(--font-inter), "Segoe UI", Tahoma, sans-serif;
   @apply min-h-screen antialiased text-slate-900;
   background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(220, 38, 38, 0.06), transparent),
     var(--bg);

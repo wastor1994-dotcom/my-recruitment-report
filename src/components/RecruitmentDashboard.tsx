@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState, type ReactNode } from "react";
 import { DetailModal } from "@/components/DetailModal";
@@ -12,60 +12,27 @@ import { parseOverviewExcel } from "@/lib/parseOverviewSheet";
 import type { KpiReport, MonthlyKpiRow, PendingItem, StatusCount, RateRequestRow } from "@/lib/rateRequestTypes";
 import { KPI_TARGET_DAYS } from "@/lib/rateRequestTypes";
 
-const PROGRESS = {
-  readEnd: 70,
-  parseEnd: 95,
-  done: 100,
-} as const;
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** ratio 0โ€“1 เธเธญเธเธเธฒเธฃเธญเนเธฒเธเนเธเธฅเนเธเธฒเธเน€เธเธฃเธทเนเธญเธ (bytes เธเธฃเธดเธเธเธฒเธ FileReader) */
 function readFileWithProgress(
   file: File,
-  onProgress: (ratio: number, label: string) => void,
+  onProgress: (percent: number, label: string) => void,
 ): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    const total = file.size;
-
-    reader.onloadstart = () => {
-      onProgress(0, `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ 0 / ${formatBytes(total)}`);
-    };
-
     reader.onprogress = (ev) => {
       if (ev.lengthComputable && ev.total > 0) {
-        const ratio = ev.loaded / ev.total;
-        onProgress(
-          ratio,
-          `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ ${formatBytes(ev.loaded)} / ${formatBytes(ev.total)} (${Math.round(ratio * 100)}%)`,
-        );
-      } else if (total > 0) {
-        const ratio = Math.min(1, ev.loaded / total);
-        onProgress(
-          ratio,
-          `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ ${formatBytes(ev.loaded)} / ${formatBytes(total)} (${Math.round(ratio * 100)}%)`,
-        );
+        const pct = Math.min(60, Math.round((ev.loaded / ev.total) * 60));
+        onProgress(pct, "กำลังโหลดไฟล์จากเครื่อง…");
       }
     };
-
     reader.onload = () => {
-      onProgress(1, `เธญเนเธฒเธเนเธเธฅเนเน€เธชเธฃเนเธ ${formatBytes(total)}`);
+      onProgress(60, "โหลดไฟล์เสร็จ");
       resolve(reader.result as ArrayBuffer);
     };
-
-    reader.onerror = () => reject(reader.error ?? new Error("เธญเนเธฒเธเนเธเธฅเนเนเธกเนเธชเธณเน€เธฃเนเธ"));
+    reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
     reader.readAsArrayBuffer(file);
   });
 }
 
-function mapProgress(phaseRatio: number, phaseStart: number, phaseEnd: number): number {
-  return Math.round(phaseStart + phaseRatio * (phaseEnd - phaseStart));
-}
 
 function ClickableNum({
   value,
@@ -90,7 +57,7 @@ function ClickableNum({
       type="button"
       onClick={onClick}
       className={`cursor-pointer underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-red-300 rounded ${className}`}
-      title="เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ"
+      title="คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา"
     >
       {value}
     </button>
@@ -128,10 +95,12 @@ function MetricCard({
   const body = (
     <>
       <p className="text-sm font-semibold text-slate-700">{label}</p>
-      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">{value}</div>
+      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">
+        {value}
+      </div>
       {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
       {onClick ? (
-        <p className="mt-2 text-xs font-medium text-red-600">เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธ•เธณเนเธซเธเนเธ</p>
+        <p className="mt-2 text-xs font-medium text-red-600">คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา</p>
       ) : null}
     </>
   );
@@ -159,21 +128,37 @@ function PassFailBadge({
 }: {
   pass: number;
   fail: number;
-  onPassClick: () => void;
-  onFailClick: () => void;
+  onPassClick?: () => void;
+  onFailClick?: () => void;
 }) {
   return (
     <span className="inline-flex flex-wrap gap-2">
-      <ClickableNum
-        value={`Pass ${pass}`}
-        onClick={onPassClick}
-        className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
-      />
-      <ClickableNum
-        value={`Fail ${fail}`}
-        onClick={onFailClick}
-        className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 hover:bg-red-200"
-      />
+      {onPassClick && pass > 0 ? (
+        <button
+          type="button"
+          onClick={onPassClick}
+          className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        >
+          Pass {pass}
+        </button>
+      ) : (
+        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+          Pass {pass}
+        </span>
+      )}
+      {onFailClick && fail > 0 ? (
+        <button
+          type="button"
+          onClick={onFailClick}
+          className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 transition hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-400"
+        >
+          Fail {fail}
+        </button>
+      ) : (
+        <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+          Fail {fail}
+        </span>
+      )}
     </span>
   );
 }
@@ -191,12 +176,13 @@ function MonthlyTable({
   pivotStyle?: boolean;
   onDrillDown: (filter: DrillDownFilter, monthLabel?: string) => void;
 }) {
-  const cell = (n: number, onClick: () => void, className: string) =>
+  const cell = (n: number, onClick: () => void, cls: string) =>
     n > 0 ? (
-      <ClickableNum value={n} onClick={onClick} className={className} />
+      <ClickableNum value={n} onClick={onClick} className={cls} />
     ) : (
-      <span className={className}>{n}</span>
+      <span className={cls}>{n}</span>
     );
+
   const totals = rows.reduce(
     (acc, r) => ({
       total_notified: acc.total_notified + r.total_notified,
@@ -229,59 +215,35 @@ function MonthlyTable({
           <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
               <tr className="border-b border-red-100 bg-white text-slate-700">
-                <th className="px-4 py-3 font-semibold">เน€เธ”เธทเธญเธ (เธงเธฑเธเธ—เธตเนเนเธเนเธ)</th>
+                <th className="px-4 py-3 font-semibold">เดือน (วันที่แจ้ง)</th>
                 <th className="px-4 py-3 font-semibold text-right text-emerald-800">Pass</th>
                 <th className="px-4 py-3 font-semibold text-right text-red-800">Fail</th>
-                <th className="px-4 py-3 font-semibold text-right">เธเนเธฒเธเน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ</th>
-                <th className="px-4 py-3 font-semibold text-right">เธเนเธฒเธเธขเธฑเธเนเธกเนเน€เธเธดเธ</th>
-                <th className="px-4 py-3 font-semibold text-right">เธฃเธงเธก</th>
-                <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธเธเนเธฒเธ</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างเกิน {KPI_TARGET_DAYS} วัน</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างยังไม่เกิน</th>
+                <th className="px-4 py-3 font-semibold text-right">รวม</th>
+                <th className="px-4 py-3 font-semibold text-right">จำนวนค้าง</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
                   <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">
-                    {cell(r.pass, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pass" }, r.label), "text-emerald-700 font-semibold")}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-red-700">
-                    {cell(r.fail, () => onDrillDown({ type: "month_notify", month: r.month, metric: "fail" }, r.label), "text-red-700 font-semibold")}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-amber-800">
-                    {cell(r.pending_over_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_over" }, r.label), "text-amber-800 font-semibold")}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                    {cell(r.pending_under_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_under" }, r.label), "text-slate-700 font-semibold")}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                    {cell(r.total_notified, () => onDrillDown({ type: "month_notify", month: r.month, metric: "total" }, r.label), "font-semibold text-slate-900")}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">
-                    {cell(r.pending, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending" }, r.label), "text-amber-700 font-semibold")}
-                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{cell(r.pass, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pass" }, r.label), "text-emerald-700 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-red-700">{cell(r.fail, () => onDrillDown({ type: "month_notify", month: r.month, metric: "fail" }, r.label), "text-red-700 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-800">{cell(r.pending_over_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_over" }, r.label), "text-amber-800 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">{cell(r.pending_under_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_under" }, r.label), "text-slate-700 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold">{cell(r.total_notified, () => onDrillDown({ type: "month_notify", month: r.month, metric: "total" }, r.label), "font-semibold text-slate-900")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">{cell(r.pending, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending" }, r.label), "text-amber-700 font-semibold")}</td>
                 </tr>
               ))}
               <tr className="bg-red-50 font-bold text-red-900">
                 <td className="px-4 py-3">Grand Total</td>
-                <td className="px-4 py-3 text-right tabular-nums text-emerald-800">
-                  {cell(totals.pass, () => onDrillDown({ type: "pass" }), "text-emerald-800 font-bold")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-red-800">
-                  {cell(totals.fail, () => onDrillDown({ type: "fail" }), "text-red-800 font-bold")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {cell(totals.pending_over_15, () => onDrillDown({ type: "pending_over" }), "font-bold")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {cell(totals.pending_under_15, () => onDrillDown({ type: "pending_under" }), "font-bold")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {cell(totals.total_notified, () => onDrillDown({ type: "all_requests" }), "font-bold")}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {cell(totals.pending, () => onDrillDown({ type: "pending" }), "font-bold")}
-                </td>
+                <td className="px-4 py-3 text-right tabular-nums text-emerald-800">{cell(totals.pass, () => onDrillDown({ type: "pass" }), "text-emerald-800 font-bold")}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-red-800">{cell(totals.fail, () => onDrillDown({ type: "fail" }), "text-red-800 font-bold")}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{cell(totals.pending_over_15, () => onDrillDown({ type: "pending_over" }), "font-bold")}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{cell(totals.pending_under_15, () => onDrillDown({ type: "pending_under" }), "font-bold")}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{cell(totals.total_notified, () => onDrillDown({ type: "all_requests" }), "font-bold")}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{cell(totals.pending, () => onDrillDown({ type: "pending" }), "font-bold")}</td>
               </tr>
             </tbody>
           </table>
@@ -300,8 +262,8 @@ function MonthlyTable({
         <table className="w-full min-w-[480px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 bg-white text-slate-700">
-              <th className="px-4 py-3 font-semibold">เน€เธ”เธทเธญเธ (เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ)</th>
-              <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธเธเธดเธ”เนเธเธเธญ</th>
+              <th className="px-4 py-3 font-semibold">เดือน (วันที่เริ่มงาน)</th>
+              <th className="px-4 py-3 font-semibold text-right">จำนวนปิดใบขอ</th>
             </tr>
           </thead>
           <tbody>
@@ -315,9 +277,7 @@ function MonthlyTable({
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
               <td className="px-4 py-3">Grand Total</td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {cell(totals.closed_total, () => onDrillDown({ type: "hired" }), "font-bold")}
-              </td>
+              <td className="px-4 py-3 text-right tabular-nums">{totals.closed_total}</td>
             </tr>
           </tbody>
         </table>
@@ -337,15 +297,15 @@ function StatusTable({
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
       <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
-        <h3 className="text-lg font-bold text-red-800">เธเธณเธเธงเธเธ•เธฒเธกเธชเธ–เธฒเธเธฐ</h3>
-        <p className="mt-1 text-sm text-slate-600">เธเธฒเธเธเธญเธฅเธฑเธกเธเน เธชเธ–เธฒเธเธฐ เนเธเธเธตเธ• เธ เธฒเธเธฃเธงเธก โ€” เธฃเธงเธก {total.toLocaleString("th-TH")} เธฃเธฒเธขเธเธฒเธฃ</p>
+        <h3 className="text-lg font-bold text-red-800">จำนวนตามสถานะ</h3>
+        <p className="mt-1 text-sm text-slate-600">จากคอลัมน์ สถานะ ในชีต ภาพรวม — รวม {total.toLocaleString("th-TH")} รายการ</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[400px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 text-slate-700">
-              <th className="px-4 py-3 font-semibold">เธชเธ–เธฒเธเธฐ</th>
-              <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธ (เนเธ)</th>
+              <th className="px-4 py-3 font-semibold">สถานะ</th>
+              <th className="px-4 py-3 font-semibold text-right">จำนวน (ใบ)</th>
             </tr>
           </thead>
           <tbody>
@@ -353,23 +313,21 @@ function StatusTable({
               <tr key={r.status} className="border-b border-red-50 hover:bg-red-50/30">
                 <td className="px-4 py-2.5 font-medium text-slate-900">{r.status}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-red-700">
+                  {r.count > 0 ? (
                   <ClickableNum
                     value={r.count.toLocaleString("th-TH")}
                     onClick={() => onDrillDown({ type: "status", status: r.status })}
                     className="font-semibold text-red-700"
                   />
+                ) : (
+                  r.count.toLocaleString("th-TH")
+                )}
                 </td>
               </tr>
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
-              <td className="px-4 py-3">เธฃเธงเธก</td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                <ClickableNum
-                  value={total.toLocaleString("th-TH")}
-                  onClick={() => onDrillDown({ type: "all_requests" })}
-                  className="font-bold text-red-900"
-                />
-              </td>
+              <td className="px-4 py-3">รวม</td>
+              <td className="px-4 py-3 text-right tabular-nums">{total.toLocaleString("th-TH")}</td>
             </tr>
           </tbody>
         </table>
@@ -378,46 +336,30 @@ function StatusTable({
   );
 }
 
-function PendingTable({
-  items,
-  onDrillDown,
-}: {
-  items: PendingItem[];
-  onDrillDown: (filter: DrillDownFilter) => void;
-}) {
+function PendingTable({ items }: { items: PendingItem[] }) {
   const over = items.filter((i) => i.over_15).length;
   const under = items.length - over;
 
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
       <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
-        <h3 className="text-lg font-bold text-red-800">เนเธเธเธญเธ—เธตเนเธขเธฑเธเธเธเธเนเธฒเธ</h3>
+        <h3 className="text-lg font-bold text-red-800">ใบขอที่ยังคงค้าง</h3>
         <p className="mt-1 text-sm text-slate-600">
-          KPI เธชเธฃเธฃเธซเธฒ {KPI_TARGET_DAYS} เธงเธฑเธ โ€” เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ:{" "}
-          <ClickableNum
-            value={over}
-            onClick={() => onDrillDown({ type: "pending_over" })}
-            className="font-bold text-red-700"
-          />{" "}
-          เนเธ | เธขเธฑเธเนเธกเนเน€เธเธดเธ:{" "}
-          <ClickableNum
-            value={under}
-            onClick={() => onDrillDown({ type: "pending_under" })}
-            className="font-bold text-emerald-700"
-          />{" "}
-          เนเธ
+          KPI สรรหา {KPI_TARGET_DAYS} วัน — เกิน {KPI_TARGET_DAYS} วัน:{" "}
+          <span className="font-bold text-red-700">{over}</span> ใบ | ยังไม่เกิน:{" "}
+          <span className="font-bold text-emerald-700">{under}</span> ใบ
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 text-slate-700">
-              <th className="px-4 py-3 font-semibold">เน€เธฅเธเธ—เธตเน / เธฃเธซเธฑเธช</th>
-              <th className="px-4 py-3 font-semibold">เธซเธเนเธงเธขเธเธฒเธ</th>
-              <th className="px-4 py-3 font-semibold">เธ•เธณเนเธซเธเนเธ</th>
-              <th className="px-4 py-3 font-semibold">เธงเธฑเธเธ—เธตเนเนเธเนเธ</th>
-              <th className="px-4 py-3 font-semibold text-right">เธเธเธเนเธฒเธ (เธงเธฑเธ)</th>
-              <th className="px-4 py-3 font-semibold">เธชเธ–เธฒเธเธฐ</th>
+              <th className="px-4 py-3 font-semibold">เลขที่ / รหัส</th>
+              <th className="px-4 py-3 font-semibold">หน่วยงาน</th>
+              <th className="px-4 py-3 font-semibold">ตำแหน่ง</th>
+              <th className="px-4 py-3 font-semibold">วันที่แจ้ง</th>
+              <th className="px-4 py-3 font-semibold text-right">คงค้าง (วัน)</th>
+              <th className="px-4 py-3 font-semibold">สถานะ</th>
               <th className="px-4 py-3 font-semibold">KPI</th>
             </tr>
           </thead>
@@ -425,7 +367,7 @@ function PendingTable({
             {items.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  เนเธกเนเธกเธตเนเธเธเธญเธเนเธฒเธ
+                  ไม่มีใบขอค้าง
                 </td>
               </tr>
             ) : (
@@ -440,11 +382,11 @@ function PendingTable({
                   <td className="px-4 py-2.5">
                     {item.over_15 ? (
                       <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-                        เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ
+                        เกิน {KPI_TARGET_DAYS} วัน
                       </span>
                     ) : (
                       <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                        เธขเธฑเธเนเธกเนเน€เธเธดเธ
+                        ยังไม่เกิน
                       </span>
                     )}
                   </td>
@@ -460,25 +402,15 @@ function PendingTable({
 
 export function RecruitmentDashboard() {
   const [report, setReport] = useState<KpiReport | null>(null);
-  const [sourceRows, setSourceRows] = useState<RateRequestRow[]>([]);
-  const [drillDown, setDrillDown] = useState<DrillDownFilter | null>(null);
-  const [drillMonthLabel, setDrillMonthLabel] = useState<string | undefined>();
   const [sheetName, setSheetName] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
   const [uploadLabel, setUploadLabel] = useState("");
-
-  const openDrillDown = (filter: DrillDownFilter, monthLabel?: string) => {
-    setDrillDown(filter);
-    setDrillMonthLabel(monthLabel);
-  };
-
-  const drillRows = useMemo(
-    () => (drillDown ? filterRowsForDrillDown(sourceRows, drillDown) : []),
-    [drillDown, sourceRows],
-  );
+  const [sourceRows, setSourceRows] = useState<RateRequestRow[]>([]);
+  const [drillDown, setDrillDown] = useState<DrillDownFilter | null>(null);
+  const [drillMonthLabel, setDrillMonthLabel] = useState<string | undefined>();
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -486,31 +418,22 @@ export function RecruitmentDashboard() {
     setParseError(null);
     setUploading(true);
     setUploadPercent(0);
-    setUploadLabel("เน€เธฃเธดเนเธกเธ•เนเธโ€ฆ");
+    setUploadLabel("เริ่มต้น…");
     try {
-      const buffer = await readFileWithProgress(file, (ratio, label) => {
-        setUploadPercent(mapProgress(ratio, 0, PROGRESS.readEnd));
+      const buffer = await readFileWithProgress(file, (pct, label) => {
+        setUploadPercent(pct);
         setUploadLabel(label);
       });
-
-      const result = await parseOverviewExcel(buffer, (ratio) => {
-        setUploadPercent(mapProgress(ratio, PROGRESS.readEnd, PROGRESS.parseEnd));
-        setUploadLabel(
-          ratio < 0.35
-            ? "เธเธณเธฅเธฑเธเน€เธเธดเธ”เนเธเธฅเน Excelโ€ฆ"
-            : ratio < 1
-              ? `เธเธณเธฅเธฑเธเธญเนเธฒเธเธเธตเธ• เธ เธฒเธเธฃเธงเธกโ€ฆ ${Math.round(ratio * 100)}%`
-              : "เธญเนเธฒเธเธเนเธญเธกเธนเธฅเน€เธชเธฃเนเธ",
-        );
-      });
-
-      setUploadPercent(mapProgress(0.5, PROGRESS.parseEnd, PROGRESS.done));
-      setUploadLabel("เธเธณเธฅเธฑเธเธเธณเธเธงเธ“ KPIโ€ฆ");
       await new Promise((r) => setTimeout(r, 0));
-
+      setUploadPercent(70);
+      setUploadLabel("กำลังอ่านชีต ภาพรวม…");
+      await new Promise((r) => setTimeout(r, 0));
+      const result = parseOverviewExcel(buffer);
+      setUploadPercent(90);
+      setUploadLabel("กำลังคำนวณ KPI…");
       if (!result.rows.length) {
         setParseError(
-          `เนเธกเนเธเธเธเนเธญเธกเธนเธฅเนเธเธเธตเธ• "${result.sheetName || "เธ เธฒเธเธฃเธงเธก"}" (${result.rawRowCount} เนเธ–เธงเธ”เธดเธ) โ€” เธ•เธฃเธงเธเธชเธญเธเธซเธฑเธงเธเธญเธฅเธฑเธกเธเน เน€เธเนเธ เธงเธฑเธเธ—เธตเนเนเธเนเธ, เธชเธ–เธฒเธเธฐ, เธงเธฑเธเธ—เธตเนเธเธดเธ”/เน€เธฃเธดเนเธกเธเธฒเธ`,
+          `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
         );
         setReport(null);
         setSourceRows([]);
@@ -522,11 +445,11 @@ export function RecruitmentDashboard() {
       setReport(computeKpiReport(result.rows));
       setFileName(file.name);
       setSheetName(result.sheetName);
-      setUploadPercent(PROGRESS.done);
-      setUploadLabel("เน€เธชเธฃเนเธเธชเธกเธเธนเธฃเธ“เน 100%");
+      setUploadPercent(100);
+      setUploadLabel("เสร็จสมบูรณ์");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
-      setParseError(`เธญเนเธฒเธเนเธเธฅเน Excel เนเธกเนเธชเธณเน€เธฃเนเธ (${msg})`);
+      setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
       setReport(null);
       setSourceRows([]);
       setFileName(null);
@@ -540,12 +463,22 @@ export function RecruitmentDashboard() {
     }
   }
 
+  const openDrillDown = (filter: DrillDownFilter, monthLabel?: string) => {
+    setDrillDown(filter);
+    setDrillMonthLabel(monthLabel);
+  };
+
+  const drillRows = useMemo(
+    () => (drillDown ? filterRowsForDrillDown(sourceRows, drillDown) : []),
+    [sourceRows, drillDown],
+  );
+
   const uploadOverlay = uploading ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border-2 border-red-200 bg-white p-8 shadow-xl">
-        <p className="mb-4 text-center text-lg font-semibold text-red-800">เธเธณเธฅเธฑเธเธเธฃเธฐเธกเธงเธฅเธเธฅเนเธเธฅเน</p>
+        <p className="mb-4 text-center text-lg font-semibold text-red-800">กำลังประมวลผลไฟล์</p>
         <UploadProgress percent={uploadPercent} label={uploadLabel} />
-        <p className="mt-3 text-center text-xs text-slate-500">เนเธเธฅเนเนเธซเธเนเธญเธฒเธเนเธเนเน€เธงเธฅเธฒเธชเธฑเธเธเธฃเธนเน เธเธฃเธธเธ“เธฒเธฃเธญเธชเธฑเธเธเธฃเธนเน</p>
+        <p className="mt-3 text-center text-xs text-slate-500">ไฟล์ใหญ่อาจใช้เวลาสักครู่ กรุณารอสักครู่</p>
       </div>
     </div>
   ) : null;
@@ -559,8 +492,8 @@ export function RecruitmentDashboard() {
         <div className="mx-auto max-w-3xl px-4 py-16 text-center">
           <h1 className="text-3xl font-bold text-red-800">Recruitment KPI Report</h1>
           <p className="mt-3 text-lg text-slate-700">
-            เธญเธฑเธเนเธซเธฅเธ”เนเธเธฅเน Excel เธเธตเธ• <span className="font-semibold text-red-700">เธ เธฒเธเธฃเธงเธก</span> เน€เธเธทเนเธญเธ”เธน KPI
-            เธชเธฃเธฃเธซเธฒ {KPI_TARGET_DAYS} เธงเธฑเธ
+            อัปโหลดไฟล์ Excel ชีต <span className="font-semibold text-red-700">ภาพรวม</span> เพื่อดู KPI
+            สรรหา {KPI_TARGET_DAYS} วัน
           </p>
           <label
             className={`mt-8 inline-flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm ${
@@ -569,12 +502,12 @@ export function RecruitmentDashboard() {
                 : "cursor-pointer hover:border-red-500 hover:bg-red-50/50"
             }`}
           >
-            <span className="text-4xl">๐“</span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-xl font-bold text-red-700" aria-hidden>XL</span>
             <span className="text-base font-semibold text-red-700">
-              {uploading ? "เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ" : "เน€เธฅเธทเธญเธเนเธเธฅเน Excel"}
+              {uploading ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel"}
             </span>
             <span className="max-w-md text-sm text-slate-600">
-              เธญเนเธฒเธเธเธฒเธเธเธตเธ• &quot;เธ เธฒเธเธฃเธงเธก&quot; โ€” เธงเธฑเธเธ—เธตเนเนเธเนเธ, เธงเธฑเธเธ—เธตเนเธเธดเธ”/เน€เธฃเธดเนเธกเธเธฒเธ, เธชเธ–เธฒเธเธฐ, เธซเธเนเธงเธขเธเธฒเธ, เธ•เธณเนเธซเธเนเธ
+              อ่านจากชีต &quot;ภาพรวม&quot; — วันที่แจ้ง, วันที่ปิด/เริ่มงาน, สถานะ, หน่วยงาน, ตำแหน่ง
             </span>
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} />
           </label>
@@ -602,17 +535,16 @@ export function RecruitmentDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-red-800 sm:text-4xl">Recruitment KPI Report</h1>
             <p className="mt-2 text-base text-slate-700">
-              เนเธเธฅเน: <span className="font-semibold text-red-700">{fileName}</span>
+              ไฟล์: <span className="font-semibold text-red-700">{fileName}</span>
               {sheetName ? (
                 <>
                   {" "}
-                  | เธเธตเธ•: <span className="font-semibold text-red-700">{sheetName}</span>
+                  | ชีต: <span className="font-semibold text-red-700">{sheetName}</span>
                 </>
               ) : null}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              KPI เธเธดเธ”เนเธเธเธญเธ เธฒเธขเนเธ {KPI_TARGET_DAYS} เธงเธฑเธ = Pass | เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ = Fail โ€”{" "}
-              <span className="font-medium text-red-700">เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเน€เธเธทเนเธญเธ”เธนเธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ</span>
+              KPI ปิดใบขอภายใน {KPI_TARGET_DAYS} วัน = Pass | เกิน {KPI_TARGET_DAYS} วัน = Fail
             </p>
           </div>
           <label
@@ -620,105 +552,84 @@ export function RecruitmentDashboard() {
               uploading ? "pointer-events-none bg-red-400" : "cursor-pointer bg-red-600 hover:bg-red-700"
             }`}
           >
-            {uploading ? "เธเธณเธฅเธฑเธเนเธซเธฅเธ”โ€ฆ" : "เน€เธเธฅเธตเนเธขเธเนเธเธฅเน Excel"}
+            {uploading ? "กำลังโหลด…" : "เปลี่ยนไฟล์ Excel"}
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} disabled={uploading} />
           </label>
         </header>
 
         <section className="mb-8 overflow-hidden rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-white shadow-md">
           <div className="border-b border-red-200 bg-red-600 px-5 py-3">
-            <h2 className="text-lg font-bold text-white">เธชเธฃเธธเธเธ เธฒเธเธฃเธงเธกเธ—เธธเธเน€เธ”เธทเธญเธ</h2>
+            <h2 className="text-lg font-bold text-white">สรุปภาพรวมทุกเดือน</h2>
+            <p className="mt-0.5 text-sm text-red-100">คลิกที่ตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา</p>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+            <MetricCard label="ใบขอรวม" value={grand.total_requests.toLocaleString("th-TH")} sub="ตรง Pivot Grand Total" onClick={() => openDrillDown({ type: "all_requests" })} />
             <MetricCard
-              label="เนเธเธเธญเธฃเธงเธก"
-              value={grand.total_requests.toLocaleString("th-TH")}
-              sub="เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
-              onClick={() => openDrillDown({ type: "all_requests" })}
-            />
-            <MetricCard
-              label="เธเธดเธ”เนเธเธเธญเธ—เธฑเนเธเธซเธกเธ”"
+              label="ปิดใบขอทั้งหมด"
               value={grand.total_hired.toLocaleString("th-TH")}
-              sub="เธเธทเนเธญเธเธเธฑเธเธเธฒเธเน€เธฃเธดเนเธกเธเธฒเธ / เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ"
+              sub="ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน"
               onClick={() => openDrillDown({ type: "hired" })}
             />
+            <MetricCard label="ค้าง (KPI N/A)" value={grand.total_pending.toLocaleString("th-TH")} onClick={() => openDrillDown({ type: "pending" })} />
             <MetricCard
-              label="เธเนเธฒเธ (KPI N/A)"
-              value={grand.total_pending.toLocaleString("th-TH")}
-              onClick={() => openDrillDown({ type: "pending" })}
-            />
-            <MetricCard
-              label="Pass (โค15 เธงเธฑเธ)"
+              label="Pass (≤15 วัน)"
               value={grand.total_pass.toLocaleString("th-TH")}
-              sub="เธเธดเธ”เธ—เธฑเธ KPI"
+              sub="ปิดทัน KPI"
               onClick={() => openDrillDown({ type: "pass" })}
             />
             <MetricCard
-              label="Fail (>15 เธงเธฑเธ)"
+              label="Fail (>15 วัน)"
               value={grand.total_fail.toLocaleString("th-TH")}
-              sub="เธเธดเธ”เน€เธเธดเธ KPI"
+              sub="ปิดเกิน KPI"
               onClick={() => openDrillDown({ type: "fail" })}
             />
             <MetricCard
-              label="เธเนเธฒเธเน€เธเธดเธ / เนเธกเนเน€เธเธดเธ 15 เธงเธฑเธ"
-              value={
-                <span>
-                  <ClickableNum
-                    value={grand.pending_over_15}
-                    onClick={() => openDrillDown({ type: "pending_over" })}
-                    className="text-3xl font-bold text-red-700"
-                  />
-                  <span className="mx-1 text-slate-400">/</span>
-                  <ClickableNum
-                    value={grand.pending_under_15}
-                    onClick={() => openDrillDown({ type: "pending_under" })}
-                    className="text-3xl font-bold text-red-700"
-                  />
-                </span>
-              }
-              sub="เธเธฒเธเธเธญเธฅเธฑเธกเธเน เธฃเธฐเธขเธฐเน€เธงเธฅเธฒเธชเธฃเธฃเธซเธฒ"
+              label="ค้างเกิน 15 วัน"
+              value={grand.pending_over_15.toLocaleString("th-TH")}
+              sub="จากคอลัมน์ ระยะเวลาสรรหา"
+              onClick={() => openDrillDown({ type: "pending_over" })}
+            />
+            <MetricCard
+              label="ค้างยังไม่เกิน 15 วัน"
+              value={grand.pending_under_15.toLocaleString("th-TH")}
+              sub="จากคอลัมน์ ระยะเวลาสรรหา"
+              onClick={() => openDrillDown({ type: "pending_under" })}
             />
           </div>
           <div className="border-t border-red-100 bg-red-50/80 px-5 py-4">
             <p className="text-sm text-slate-800">
-              <span className="font-bold text-red-800">เธเธฃเธฃเธ—เธฑเธ”เธชเธฃเธธเธ:</span> เนเธเธเธญเธฃเธงเธก{" "}
+              <span className="font-bold text-red-800">บรรทัดสรุป:</span> ใบขอรวม{" "}
               <ClickableNum
                 value={grand.total_requests}
                 onClick={() => openDrillDown({ type: "all_requests" })}
                 className="font-bold text-red-800"
-              />{" "}
-              | เธเธดเธ”เนเธเธเธญ{" "}
+              /> | ปิดใบขอ{" "}
               <ClickableNum
                 value={grand.total_hired}
                 onClick={() => openDrillDown({ type: "hired" })}
                 className="font-bold text-red-800"
-              />{" "}
-              | เธเนเธฒเธ{" "}
+              /> | ค้าง{" "}
               <ClickableNum
                 value={grand.total_pending}
                 onClick={() => openDrillDown({ type: "pending" })}
                 className="font-bold text-red-800"
-              />{" "}
-              (เน€เธเธดเธ{" "}
+              /> (เกิน{" "}
               <ClickableNum
                 value={grand.pending_over_15}
                 onClick={() => openDrillDown({ type: "pending_over" })}
                 className="font-bold text-red-800"
-              />{" "}
-              / เธขเธฑเธเนเธกเนเน€เธเธดเธ{" "}
+              /> / ยังไม่เกิน{" "}
               <ClickableNum
                 value={grand.pending_under_15}
                 onClick={() => openDrillDown({ type: "pending_under" })}
                 className="font-bold text-red-800"
               />
-              ) | KPI (
-              <PassFailBadge
+              ) | KPI (<PassFailBadge
                 pass={grand.total_pass}
                 fail={grand.total_fail}
                 onPassClick={() => openDrillDown({ type: "pass" })}
                 onFailClick={() => openDrillDown({ type: "fail" })}
-              />
-              )
+              />)
             </p>
           </div>
         </section>
@@ -727,21 +638,21 @@ export function RecruitmentDashboard() {
           <StatusTable rows={report.status_counts} onDrillDown={openDrillDown} />
 
           <MonthlyTable
-            title="เธชเธฃเธธเธเธฃเธฒเธขเน€เธ”เธทเธญเธ (เธ•เธฒเธก Pivot โ€” เน€เธ”เธทเธญเธเธงเธฑเธเธ—เธตเนเนเธเนเธ)"
-            subtitle="เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเน€เธเธทเนเธญเธ”เธนเธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ"
+            title="สรุปรายเดือน (ตาม Pivot — เดือนวันที่แจ้ง)"
+            subtitle="Pass/Fail จากคอลัมน์ KPI | ค้าง = N/A แยกเกิน/ไม่เกิน 15 วัน จาก ระยะเวลาสรรหา"
             rows={report.monthly}
             pivotStyle
             onDrillDown={openDrillDown}
           />
 
           <MonthlyTable
-            title="เธเธณเธเธงเธเธเธดเธ”เนเธเธเธญเธฃเธฒเธขเน€เธ”เธทเธญเธ"
-            subtitle="เธเธฑเธเธ•เธฒเธกเน€เธ”เธทเธญเธ เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ โ€” เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
+            title="จำนวนปิดใบขอรายเดือน"
+            subtitle="นับตามเดือน วันที่เริ่มงาน (ตรงคอลัมน์ จำนวนปิดใบขอ ใน Pivot)"
             rows={report.monthly_by_close}
             onDrillDown={openDrillDown}
           />
 
-          <PendingTable items={report.pending_items} onDrillDown={openDrillDown} />
+          <PendingTable items={report.pending_items} />
         </main>
       </div>
     </>
