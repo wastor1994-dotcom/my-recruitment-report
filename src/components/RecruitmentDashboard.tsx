@@ -11,6 +11,7 @@ import {
 import { parseOverviewExcel } from "@/lib/parseOverviewSheet";
 import type { KpiReport, MonthlyKpiRow, PendingItem, StatusCount, RateRequestRow } from "@/lib/rateRequestTypes";
 import { KPI_TARGET_DAYS } from "@/lib/rateRequestTypes";
+import { UI_TEXT as T } from "@/lib/uiText";
 
 function readFileWithProgress(
   file: File,
@@ -21,14 +22,14 @@ function readFileWithProgress(
     reader.onprogress = (ev) => {
       if (ev.lengthComputable && ev.total > 0) {
         const pct = Math.min(60, Math.round((ev.loaded / ev.total) * 60));
-        onProgress(pct, "กำลังโหลดไฟล์จากเครื่อง…");
+        onProgress(pct, T.readingFile);
       }
     };
     reader.onload = () => {
-      onProgress(60, "โหลดไฟล์เสร็จ");
+      onProgress(60, T.readDone);
       resolve(reader.result as ArrayBuffer);
     };
-    reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.onerror = () => reject(reader.error ?? new Error(T.readError));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -57,7 +58,7 @@ function ClickableNum({
       type="button"
       onClick={onClick}
       className={`cursor-pointer underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-red-300 rounded ${className}`}
-      title="คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา"
+      title={T.numClickTitle}
     >
       {value}
     </button>
@@ -100,7 +101,7 @@ function MetricCard({
       </div>
       {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
       {onClick ? (
-        <p className="mt-2 text-xs font-medium text-red-600">คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา</p>
+        <p className="mt-2 text-xs font-medium text-red-600">{T.cardClickHint}</p>
       ) : null}
     </>
   );
@@ -418,7 +419,7 @@ export function RecruitmentDashboard() {
     setParseError(null);
     setUploading(true);
     setUploadPercent(0);
-    setUploadLabel("เริ่มต้น…");
+    setUploadLabel(T.start);
     try {
       const buffer = await readFileWithProgress(file, (pct, label) => {
         setUploadPercent(pct);
@@ -426,11 +427,11 @@ export function RecruitmentDashboard() {
       });
       await new Promise((r) => setTimeout(r, 0));
       setUploadPercent(70);
-      setUploadLabel("กำลังอ่านชีต ภาพรวม…");
+      setUploadLabel(T.parsingSheet);
       await new Promise((r) => setTimeout(r, 0));
       const result = parseOverviewExcel(buffer);
       setUploadPercent(90);
-      setUploadLabel("กำลังคำนวณ KPI…");
+      setUploadLabel(T.computingKpi);
       if (!result.rows.length) {
         setParseError(
           `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
@@ -446,7 +447,7 @@ export function RecruitmentDashboard() {
       setFileName(file.name);
       setSheetName(result.sheetName);
       setUploadPercent(100);
-      setUploadLabel("เสร็จสมบูรณ์");
+      setUploadLabel(T.done);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
       setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
@@ -492,8 +493,11 @@ export function RecruitmentDashboard() {
         <div className="mx-auto max-w-3xl px-4 py-16 text-center">
           <h1 className="text-3xl font-bold text-red-800">Recruitment KPI Report</h1>
           <p className="mt-3 text-lg text-slate-700">
-            อัปโหลดไฟล์ Excel ชีต <span className="font-semibold text-red-700">ภาพรวม</span> เพื่อดู KPI
-            สรรหา {KPI_TARGET_DAYS} วัน
+            {T.uploadPageTitleParts.beforeSheet}
+            <span className="font-semibold text-red-700">{T.uploadPageTitleParts.sheetName}</span>
+            {T.uploadPageTitleParts.afterSheet}
+            {KPI_TARGET_DAYS}
+            {T.landingKpiDays}
           </p>
           <label
             className={`mt-8 inline-flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm ${
@@ -504,11 +508,9 @@ export function RecruitmentDashboard() {
           >
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-xl font-bold text-red-700" aria-hidden>XL</span>
             <span className="text-base font-semibold text-red-700">
-              {uploading ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel"}
+              {uploading ? T.uploadingFile : T.chooseExcel}
             </span>
-            <span className="max-w-md text-sm text-slate-600">
-              อ่านจากชีต &quot;ภาพรวม&quot; — วันที่แจ้ง, วันที่ปิด/เริ่มงาน, สถานะ, หน่วยงาน, ตำแหน่ง
-            </span>
+            <span className="max-w-md text-sm text-slate-600">{T.uploadHint}</span>
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} />
           </label>
           {parseError ? <p className="mt-4 text-sm font-medium text-red-600">{parseError}</p> : null}
@@ -535,16 +537,16 @@ export function RecruitmentDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-red-800 sm:text-4xl">Recruitment KPI Report</h1>
             <p className="mt-2 text-base text-slate-700">
-              ไฟล์: <span className="font-semibold text-red-700">{fileName}</span>
+              {T.fileLabel}: <span className="font-semibold text-red-700">{fileName}</span>
               {sheetName ? (
                 <>
                   {" "}
-                  | ชีต: <span className="font-semibold text-red-700">{sheetName}</span>
+                  | {T.sheetLabel}: <span className="font-semibold text-red-700">{sheetName}</span>
                 </>
               ) : null}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              KPI ปิดใบขอภายใน {KPI_TARGET_DAYS} วัน = Pass | เกิน {KPI_TARGET_DAYS} วัน = Fail
+              {T.kpiRulePrefix}{KPI_TARGET_DAYS}{T.kpiRuleMid}{KPI_TARGET_DAYS}{T.kpiRuleSuffix}
             </p>
           </div>
           <label
@@ -552,14 +554,14 @@ export function RecruitmentDashboard() {
               uploading ? "pointer-events-none bg-red-400" : "cursor-pointer bg-red-600 hover:bg-red-700"
             }`}
           >
-            {uploading ? "กำลังโหลด…" : "เปลี่ยนไฟล์ Excel"}
+            {uploading ? T.uploading : T.changeExcel}
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} disabled={uploading} />
           </label>
         </header>
 
         <section className="mb-8 overflow-hidden rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-white shadow-md">
           <div className="border-b border-red-200 bg-red-600 px-5 py-3">
-            <h2 className="text-lg font-bold text-white">สรุปภาพรวมทุกเดือน</h2>
+            <h2 className="text-lg font-bold text-white">{T.grandSummaryTitle}</h2>
             <p className="mt-0.5 text-sm text-red-100">คลิกที่ตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา</p>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">

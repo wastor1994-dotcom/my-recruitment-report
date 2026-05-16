@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
+import { UI_TEXT } from "@/lib/uiText";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -36,7 +37,7 @@ export default function RootLayout({
             </span>
             <div>
               <div className="text-lg font-bold text-red-800">Recruitment Report</div>
-              <div className="text-sm text-slate-600">อัปโหลด Excel แล้วดูกราฟและตัวเลขสรุป</div>
+              <div className="text-sm text-slate-600">{UI_TEXT.layoutSubtitle}</div>
             </div>
           </div>
         </header>
