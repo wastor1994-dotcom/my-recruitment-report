@@ -47,8 +47,9 @@ function todayIso(): string {
 /** ตรง Pivot: อ่านจากคอลัมน์ KPI — Pass / Fail / N/A (ค้าง) */
 export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   const k = row.kpi_raw.trim().toLowerCase();
+  if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a")) return "pending";
+  if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
   if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
-  if (k.includes("fail") || k.includes("ไม่ผ่าน")) return "fail";
   return "pending";
 }
 

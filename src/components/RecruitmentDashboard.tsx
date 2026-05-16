@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, type ReactNode } from "react";
 import { DetailModal } from "@/components/DetailModal";
@@ -24,7 +24,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** ratio 0–1 ของการอ่านไฟล์จากเครื่อง (bytes จริงจาก FileReader) */
+/** ratio 0โ€“1 เธเธญเธเธเธฒเธฃเธญเนเธฒเธเนเธเธฅเนเธเธฒเธเน€เธเธฃเธทเนเธญเธ (bytes เธเธฃเธดเธเธเธฒเธ FileReader) */
 function readFileWithProgress(
   file: File,
   onProgress: (ratio: number, label: string) => void,
@@ -34,7 +34,7 @@ function readFileWithProgress(
     const total = file.size;
 
     reader.onloadstart = () => {
-      onProgress(0, `กำลังอ่านไฟล์… 0 / ${formatBytes(total)}`);
+      onProgress(0, `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ 0 / ${formatBytes(total)}`);
     };
 
     reader.onprogress = (ev) => {
@@ -42,23 +42,23 @@ function readFileWithProgress(
         const ratio = ev.loaded / ev.total;
         onProgress(
           ratio,
-          `กำลังอ่านไฟล์… ${formatBytes(ev.loaded)} / ${formatBytes(ev.total)} (${Math.round(ratio * 100)}%)`,
+          `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ ${formatBytes(ev.loaded)} / ${formatBytes(ev.total)} (${Math.round(ratio * 100)}%)`,
         );
       } else if (total > 0) {
         const ratio = Math.min(1, ev.loaded / total);
         onProgress(
           ratio,
-          `กำลังอ่านไฟล์… ${formatBytes(ev.loaded)} / ${formatBytes(total)} (${Math.round(ratio * 100)}%)`,
+          `เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ ${formatBytes(ev.loaded)} / ${formatBytes(total)} (${Math.round(ratio * 100)}%)`,
         );
       }
     };
 
     reader.onload = () => {
-      onProgress(1, `อ่านไฟล์เสร็จ ${formatBytes(total)}`);
+      onProgress(1, `เธญเนเธฒเธเนเธเธฅเนเน€เธชเธฃเนเธ ${formatBytes(total)}`);
       resolve(reader.result as ArrayBuffer);
     };
 
-    reader.onerror = () => reject(reader.error ?? new Error("อ่านไฟล์ไม่สำเร็จ"));
+    reader.onerror = () => reject(reader.error ?? new Error("เธญเนเธฒเธเนเธเธฅเนเนเธกเนเธชเธณเน€เธฃเนเธ"));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -90,7 +90,7 @@ function ClickableNum({
       type="button"
       onClick={onClick}
       className={`cursor-pointer underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-red-300 rounded ${className}`}
-      title="คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา"
+      title="เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ"
     >
       {value}
     </button>
@@ -125,19 +125,30 @@ function MetricCard({
   sub?: string;
   onClick?: () => void;
 }) {
-  return (
-    <div className="rounded-2xl border-2 border-red-100 bg-white p-5 shadow-sm">
+  const body = (
+    <>
       <p className="text-sm font-semibold text-slate-700">{label}</p>
-      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">
-        {onClick && (typeof value === "string" || typeof value === "number") ? (
-          <ClickableNum value={value} onClick={onClick} className="text-3xl font-bold text-red-700" />
-        ) : (
-          value
-        )}
-      </div>
+      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">{value}</div>
       {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
-    </div>
+      {onClick ? (
+        <p className="mt-2 text-xs font-medium text-red-600">เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธ•เธณเนเธซเธเนเธ</p>
+      ) : null}
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full rounded-2xl border-2 border-red-100 bg-white p-5 text-left shadow-sm transition hover:border-red-400 hover:bg-red-50/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-300"
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <div className="rounded-2xl border-2 border-red-100 bg-white p-5 shadow-sm">{body}</div>;
 }
 
 function PassFailBadge({
@@ -218,13 +229,13 @@ function MonthlyTable({
           <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
               <tr className="border-b border-red-100 bg-white text-slate-700">
-                <th className="px-4 py-3 font-semibold">เดือน (วันที่แจ้ง)</th>
+                <th className="px-4 py-3 font-semibold">เน€เธ”เธทเธญเธ (เธงเธฑเธเธ—เธตเนเนเธเนเธ)</th>
                 <th className="px-4 py-3 font-semibold text-right text-emerald-800">Pass</th>
                 <th className="px-4 py-3 font-semibold text-right text-red-800">Fail</th>
-                <th className="px-4 py-3 font-semibold text-right">ค้างเกิน {KPI_TARGET_DAYS} วัน</th>
-                <th className="px-4 py-3 font-semibold text-right">ค้างยังไม่เกิน</th>
-                <th className="px-4 py-3 font-semibold text-right">รวม</th>
-                <th className="px-4 py-3 font-semibold text-right">จำนวนค้าง</th>
+                <th className="px-4 py-3 font-semibold text-right">เธเนเธฒเธเน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ</th>
+                <th className="px-4 py-3 font-semibold text-right">เธเนเธฒเธเธขเธฑเธเนเธกเนเน€เธเธดเธ</th>
+                <th className="px-4 py-3 font-semibold text-right">เธฃเธงเธก</th>
+                <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธเธเนเธฒเธ</th>
               </tr>
             </thead>
             <tbody>
@@ -289,8 +300,8 @@ function MonthlyTable({
         <table className="w-full min-w-[480px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 bg-white text-slate-700">
-              <th className="px-4 py-3 font-semibold">เดือน (วันที่เริ่มงาน)</th>
-              <th className="px-4 py-3 font-semibold text-right">จำนวนปิดใบขอ</th>
+              <th className="px-4 py-3 font-semibold">เน€เธ”เธทเธญเธ (เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ)</th>
+              <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธเธเธดเธ”เนเธเธเธญ</th>
             </tr>
           </thead>
           <tbody>
@@ -326,15 +337,15 @@ function StatusTable({
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
       <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
-        <h3 className="text-lg font-bold text-red-800">จำนวนตามสถานะ</h3>
-        <p className="mt-1 text-sm text-slate-600">จากคอลัมน์ สถานะ ในชีต ภาพรวม — รวม {total.toLocaleString("th-TH")} รายการ</p>
+        <h3 className="text-lg font-bold text-red-800">เธเธณเธเธงเธเธ•เธฒเธกเธชเธ–เธฒเธเธฐ</h3>
+        <p className="mt-1 text-sm text-slate-600">เธเธฒเธเธเธญเธฅเธฑเธกเธเน เธชเธ–เธฒเธเธฐ เนเธเธเธตเธ• เธ เธฒเธเธฃเธงเธก โ€” เธฃเธงเธก {total.toLocaleString("th-TH")} เธฃเธฒเธขเธเธฒเธฃ</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[400px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 text-slate-700">
-              <th className="px-4 py-3 font-semibold">สถานะ</th>
-              <th className="px-4 py-3 font-semibold text-right">จำนวน (ใบ)</th>
+              <th className="px-4 py-3 font-semibold">เธชเธ–เธฒเธเธฐ</th>
+              <th className="px-4 py-3 font-semibold text-right">เธเธณเธเธงเธ (เนเธ)</th>
             </tr>
           </thead>
           <tbody>
@@ -351,7 +362,7 @@ function StatusTable({
               </tr>
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
-              <td className="px-4 py-3">รวม</td>
+              <td className="px-4 py-3">เธฃเธงเธก</td>
               <td className="px-4 py-3 text-right tabular-nums">
                 <ClickableNum
                   value={total.toLocaleString("th-TH")}
@@ -380,33 +391,33 @@ function PendingTable({
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
       <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
-        <h3 className="text-lg font-bold text-red-800">ใบขอที่ยังคงค้าง</h3>
+        <h3 className="text-lg font-bold text-red-800">เนเธเธเธญเธ—เธตเนเธขเธฑเธเธเธเธเนเธฒเธ</h3>
         <p className="mt-1 text-sm text-slate-600">
-          KPI สรรหา {KPI_TARGET_DAYS} วัน — เกิน {KPI_TARGET_DAYS} วัน:{" "}
+          KPI เธชเธฃเธฃเธซเธฒ {KPI_TARGET_DAYS} เธงเธฑเธ โ€” เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ:{" "}
           <ClickableNum
             value={over}
             onClick={() => onDrillDown({ type: "pending_over" })}
             className="font-bold text-red-700"
           />{" "}
-          ใบ | ยังไม่เกิน:{" "}
+          เนเธ | เธขเธฑเธเนเธกเนเน€เธเธดเธ:{" "}
           <ClickableNum
             value={under}
             onClick={() => onDrillDown({ type: "pending_under" })}
             className="font-bold text-emerald-700"
           />{" "}
-          ใบ
+          เนเธ
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-red-100 text-slate-700">
-              <th className="px-4 py-3 font-semibold">เลขที่ / รหัส</th>
-              <th className="px-4 py-3 font-semibold">หน่วยงาน</th>
-              <th className="px-4 py-3 font-semibold">ตำแหน่ง</th>
-              <th className="px-4 py-3 font-semibold">วันที่แจ้ง</th>
-              <th className="px-4 py-3 font-semibold text-right">คงค้าง (วัน)</th>
-              <th className="px-4 py-3 font-semibold">สถานะ</th>
+              <th className="px-4 py-3 font-semibold">เน€เธฅเธเธ—เธตเน / เธฃเธซเธฑเธช</th>
+              <th className="px-4 py-3 font-semibold">เธซเธเนเธงเธขเธเธฒเธ</th>
+              <th className="px-4 py-3 font-semibold">เธ•เธณเนเธซเธเนเธ</th>
+              <th className="px-4 py-3 font-semibold">เธงเธฑเธเธ—เธตเนเนเธเนเธ</th>
+              <th className="px-4 py-3 font-semibold text-right">เธเธเธเนเธฒเธ (เธงเธฑเธ)</th>
+              <th className="px-4 py-3 font-semibold">เธชเธ–เธฒเธเธฐ</th>
               <th className="px-4 py-3 font-semibold">KPI</th>
             </tr>
           </thead>
@@ -414,7 +425,7 @@ function PendingTable({
             {items.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  ไม่มีใบขอค้าง
+                  เนเธกเนเธกเธตเนเธเธเธญเธเนเธฒเธ
                 </td>
               </tr>
             ) : (
@@ -429,11 +440,11 @@ function PendingTable({
                   <td className="px-4 py-2.5">
                     {item.over_15 ? (
                       <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-                        เกิน {KPI_TARGET_DAYS} วัน
+                        เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ
                       </span>
                     ) : (
                       <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                        ยังไม่เกิน
+                        เธขเธฑเธเนเธกเนเน€เธเธดเธ
                       </span>
                     )}
                   </td>
@@ -475,7 +486,7 @@ export function RecruitmentDashboard() {
     setParseError(null);
     setUploading(true);
     setUploadPercent(0);
-    setUploadLabel("เริ่มต้น…");
+    setUploadLabel("เน€เธฃเธดเนเธกเธ•เนเธโ€ฆ");
     try {
       const buffer = await readFileWithProgress(file, (ratio, label) => {
         setUploadPercent(mapProgress(ratio, 0, PROGRESS.readEnd));
@@ -486,20 +497,20 @@ export function RecruitmentDashboard() {
         setUploadPercent(mapProgress(ratio, PROGRESS.readEnd, PROGRESS.parseEnd));
         setUploadLabel(
           ratio < 0.35
-            ? "กำลังเปิดไฟล์ Excel…"
+            ? "เธเธณเธฅเธฑเธเน€เธเธดเธ”เนเธเธฅเน Excelโ€ฆ"
             : ratio < 1
-              ? `กำลังอ่านชีต ภาพรวม… ${Math.round(ratio * 100)}%`
-              : "อ่านข้อมูลเสร็จ",
+              ? `เธเธณเธฅเธฑเธเธญเนเธฒเธเธเธตเธ• เธ เธฒเธเธฃเธงเธกโ€ฆ ${Math.round(ratio * 100)}%`
+              : "เธญเนเธฒเธเธเนเธญเธกเธนเธฅเน€เธชเธฃเนเธ",
         );
       });
 
       setUploadPercent(mapProgress(0.5, PROGRESS.parseEnd, PROGRESS.done));
-      setUploadLabel("กำลังคำนวณ KPI…");
+      setUploadLabel("เธเธณเธฅเธฑเธเธเธณเธเธงเธ“ KPIโ€ฆ");
       await new Promise((r) => setTimeout(r, 0));
 
       if (!result.rows.length) {
         setParseError(
-          `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
+          `เนเธกเนเธเธเธเนเธญเธกเธนเธฅเนเธเธเธตเธ• "${result.sheetName || "เธ เธฒเธเธฃเธงเธก"}" (${result.rawRowCount} เนเธ–เธงเธ”เธดเธ) โ€” เธ•เธฃเธงเธเธชเธญเธเธซเธฑเธงเธเธญเธฅเธฑเธกเธเน เน€เธเนเธ เธงเธฑเธเธ—เธตเนเนเธเนเธ, เธชเธ–เธฒเธเธฐ, เธงเธฑเธเธ—เธตเนเธเธดเธ”/เน€เธฃเธดเนเธกเธเธฒเธ`,
         );
         setReport(null);
         setSourceRows([]);
@@ -512,10 +523,10 @@ export function RecruitmentDashboard() {
       setFileName(file.name);
       setSheetName(result.sheetName);
       setUploadPercent(PROGRESS.done);
-      setUploadLabel("เสร็จสมบูรณ์ 100%");
+      setUploadLabel("เน€เธชเธฃเนเธเธชเธกเธเธนเธฃเธ“เน 100%");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown";
-      setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
+      setParseError(`เธญเนเธฒเธเนเธเธฅเน Excel เนเธกเนเธชเธณเน€เธฃเนเธ (${msg})`);
       setReport(null);
       setSourceRows([]);
       setFileName(null);
@@ -532,9 +543,9 @@ export function RecruitmentDashboard() {
   const uploadOverlay = uploading ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border-2 border-red-200 bg-white p-8 shadow-xl">
-        <p className="mb-4 text-center text-lg font-semibold text-red-800">กำลังประมวลผลไฟล์</p>
+        <p className="mb-4 text-center text-lg font-semibold text-red-800">เธเธณเธฅเธฑเธเธเธฃเธฐเธกเธงเธฅเธเธฅเนเธเธฅเน</p>
         <UploadProgress percent={uploadPercent} label={uploadLabel} />
-        <p className="mt-3 text-center text-xs text-slate-500">ไฟล์ใหญ่อาจใช้เวลาสักครู่ กรุณารอสักครู่</p>
+        <p className="mt-3 text-center text-xs text-slate-500">เนเธเธฅเนเนเธซเธเนเธญเธฒเธเนเธเนเน€เธงเธฅเธฒเธชเธฑเธเธเธฃเธนเน เธเธฃเธธเธ“เธฒเธฃเธญเธชเธฑเธเธเธฃเธนเน</p>
       </div>
     </div>
   ) : null;
@@ -548,8 +559,8 @@ export function RecruitmentDashboard() {
         <div className="mx-auto max-w-3xl px-4 py-16 text-center">
           <h1 className="text-3xl font-bold text-red-800">Recruitment KPI Report</h1>
           <p className="mt-3 text-lg text-slate-700">
-            อัปโหลดไฟล์ Excel ชีต <span className="font-semibold text-red-700">ภาพรวม</span> เพื่อดู KPI
-            สรรหา {KPI_TARGET_DAYS} วัน
+            เธญเธฑเธเนเธซเธฅเธ”เนเธเธฅเน Excel เธเธตเธ• <span className="font-semibold text-red-700">เธ เธฒเธเธฃเธงเธก</span> เน€เธเธทเนเธญเธ”เธน KPI
+            เธชเธฃเธฃเธซเธฒ {KPI_TARGET_DAYS} เธงเธฑเธ
           </p>
           <label
             className={`mt-8 inline-flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-red-300 bg-white px-10 py-10 shadow-sm ${
@@ -558,12 +569,12 @@ export function RecruitmentDashboard() {
                 : "cursor-pointer hover:border-red-500 hover:bg-red-50/50"
             }`}
           >
-            <span className="text-4xl">📊</span>
+            <span className="text-4xl">๐“</span>
             <span className="text-base font-semibold text-red-700">
-              {uploading ? "กำลังอ่านไฟล์…" : "เลือกไฟล์ Excel"}
+              {uploading ? "เธเธณเธฅเธฑเธเธญเนเธฒเธเนเธเธฅเนโ€ฆ" : "เน€เธฅเธทเธญเธเนเธเธฅเน Excel"}
             </span>
             <span className="max-w-md text-sm text-slate-600">
-              อ่านจากชีต &quot;ภาพรวม&quot; — วันที่แจ้ง, วันที่ปิด/เริ่มงาน, สถานะ, หน่วยงาน, ตำแหน่ง
+              เธญเนเธฒเธเธเธฒเธเธเธตเธ• &quot;เธ เธฒเธเธฃเธงเธก&quot; โ€” เธงเธฑเธเธ—เธตเนเนเธเนเธ, เธงเธฑเธเธ—เธตเนเธเธดเธ”/เน€เธฃเธดเนเธกเธเธฒเธ, เธชเธ–เธฒเธเธฐ, เธซเธเนเธงเธขเธเธฒเธ, เธ•เธณเนเธซเธเนเธ
             </span>
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} />
           </label>
@@ -591,17 +602,17 @@ export function RecruitmentDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-red-800 sm:text-4xl">Recruitment KPI Report</h1>
             <p className="mt-2 text-base text-slate-700">
-              ไฟล์: <span className="font-semibold text-red-700">{fileName}</span>
+              เนเธเธฅเน: <span className="font-semibold text-red-700">{fileName}</span>
               {sheetName ? (
                 <>
                   {" "}
-                  | ชีต: <span className="font-semibold text-red-700">{sheetName}</span>
+                  | เธเธตเธ•: <span className="font-semibold text-red-700">{sheetName}</span>
                 </>
               ) : null}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              KPI ปิดใบขอภายใน {KPI_TARGET_DAYS} วัน = Pass | เกิน {KPI_TARGET_DAYS} วัน = Fail —{" "}
-              <span className="font-medium text-red-700">คลิกตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา</span>
+              KPI เธเธดเธ”เนเธเธเธญเธ เธฒเธขเนเธ {KPI_TARGET_DAYS} เธงเธฑเธ = Pass | เน€เธเธดเธ {KPI_TARGET_DAYS} เธงเธฑเธ = Fail โ€”{" "}
+              <span className="font-medium text-red-700">เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเน€เธเธทเนเธญเธ”เธนเธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ</span>
             </p>
           </div>
           <label
@@ -609,47 +620,47 @@ export function RecruitmentDashboard() {
               uploading ? "pointer-events-none bg-red-400" : "cursor-pointer bg-red-600 hover:bg-red-700"
             }`}
           >
-            {uploading ? "กำลังโหลด…" : "เปลี่ยนไฟล์ Excel"}
+            {uploading ? "เธเธณเธฅเธฑเธเนเธซเธฅเธ”โ€ฆ" : "เน€เธเธฅเธตเนเธขเธเนเธเธฅเน Excel"}
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFileChange} disabled={uploading} />
           </label>
         </header>
 
         <section className="mb-8 overflow-hidden rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-white shadow-md">
           <div className="border-b border-red-200 bg-red-600 px-5 py-3">
-            <h2 className="text-lg font-bold text-white">สรุปภาพรวมทุกเดือน</h2>
+            <h2 className="text-lg font-bold text-white">เธชเธฃเธธเธเธ เธฒเธเธฃเธงเธกเธ—เธธเธเน€เธ”เธทเธญเธ</h2>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
             <MetricCard
-              label="ใบขอรวม"
+              label="เนเธเธเธญเธฃเธงเธก"
               value={grand.total_requests.toLocaleString("th-TH")}
-              sub="คลิกดูรายละเอียด"
+              sub="เธเธฅเธดเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
               onClick={() => openDrillDown({ type: "all_requests" })}
             />
             <MetricCard
-              label="ปิดใบขอทั้งหมด"
+              label="เธเธดเธ”เนเธเธเธญเธ—เธฑเนเธเธซเธกเธ”"
               value={grand.total_hired.toLocaleString("th-TH")}
-              sub="ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน"
+              sub="เธเธทเนเธญเธเธเธฑเธเธเธฒเธเน€เธฃเธดเนเธกเธเธฒเธ / เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ"
               onClick={() => openDrillDown({ type: "hired" })}
             />
             <MetricCard
-              label="ค้าง (KPI N/A)"
+              label="เธเนเธฒเธ (KPI N/A)"
               value={grand.total_pending.toLocaleString("th-TH")}
               onClick={() => openDrillDown({ type: "pending" })}
             />
             <MetricCard
-              label="Pass (≤15 วัน)"
+              label="Pass (โค15 เธงเธฑเธ)"
               value={grand.total_pass.toLocaleString("th-TH")}
-              sub="ปิดทัน KPI"
+              sub="เธเธดเธ”เธ—เธฑเธ KPI"
               onClick={() => openDrillDown({ type: "pass" })}
             />
             <MetricCard
-              label="Fail (>15 วัน)"
+              label="Fail (>15 เธงเธฑเธ)"
               value={grand.total_fail.toLocaleString("th-TH")}
-              sub="ปิดเกิน KPI"
+              sub="เธเธดเธ”เน€เธเธดเธ KPI"
               onClick={() => openDrillDown({ type: "fail" })}
             />
             <MetricCard
-              label="ค้างเกิน / ไม่เกิน 15 วัน"
+              label="เธเนเธฒเธเน€เธเธดเธ / เนเธกเนเน€เธเธดเธ 15 เธงเธฑเธ"
               value={
                 <span>
                   <ClickableNum
@@ -665,36 +676,36 @@ export function RecruitmentDashboard() {
                   />
                 </span>
               }
-              sub="จากคอลัมน์ ระยะเวลาสรรหา"
+              sub="เธเธฒเธเธเธญเธฅเธฑเธกเธเน เธฃเธฐเธขเธฐเน€เธงเธฅเธฒเธชเธฃเธฃเธซเธฒ"
             />
           </div>
           <div className="border-t border-red-100 bg-red-50/80 px-5 py-4">
             <p className="text-sm text-slate-800">
-              <span className="font-bold text-red-800">บรรทัดสรุป:</span> ใบขอรวม{" "}
+              <span className="font-bold text-red-800">เธเธฃเธฃเธ—เธฑเธ”เธชเธฃเธธเธ:</span> เนเธเธเธญเธฃเธงเธก{" "}
               <ClickableNum
                 value={grand.total_requests}
                 onClick={() => openDrillDown({ type: "all_requests" })}
                 className="font-bold text-red-800"
               />{" "}
-              | ปิดใบขอ{" "}
+              | เธเธดเธ”เนเธเธเธญ{" "}
               <ClickableNum
                 value={grand.total_hired}
                 onClick={() => openDrillDown({ type: "hired" })}
                 className="font-bold text-red-800"
               />{" "}
-              | ค้าง{" "}
+              | เธเนเธฒเธ{" "}
               <ClickableNum
                 value={grand.total_pending}
                 onClick={() => openDrillDown({ type: "pending" })}
                 className="font-bold text-red-800"
               />{" "}
-              (เกิน{" "}
+              (เน€เธเธดเธ{" "}
               <ClickableNum
                 value={grand.pending_over_15}
                 onClick={() => openDrillDown({ type: "pending_over" })}
                 className="font-bold text-red-800"
               />{" "}
-              / ยังไม่เกิน{" "}
+              / เธขเธฑเธเนเธกเนเน€เธเธดเธ{" "}
               <ClickableNum
                 value={grand.pending_under_15}
                 onClick={() => openDrillDown({ type: "pending_under" })}
@@ -716,16 +727,16 @@ export function RecruitmentDashboard() {
           <StatusTable rows={report.status_counts} onDrillDown={openDrillDown} />
 
           <MonthlyTable
-            title="สรุปรายเดือน (ตาม Pivot — เดือนวันที่แจ้ง)"
-            subtitle="คลิกตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา"
+            title="เธชเธฃเธธเธเธฃเธฒเธขเน€เธ”เธทเธญเธ (เธ•เธฒเธก Pivot โ€” เน€เธ”เธทเธญเธเธงเธฑเธเธ—เธตเนเนเธเนเธ)"
+            subtitle="เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเน€เธเธทเนเธญเธ”เธนเธ•เธณเนเธซเธเนเธเนเธฅเธฐเน€เธเนเธฒเธซเธเนเธฒเธ—เธตเนเธชเธฃเธฃเธซเธฒ"
             rows={report.monthly}
             pivotStyle
             onDrillDown={openDrillDown}
           />
 
           <MonthlyTable
-            title="จำนวนปิดใบขอรายเดือน"
-            subtitle="นับตามเดือน วันที่เริ่มงาน — คลิกตัวเลขดูรายละเอียด"
+            title="เธเธณเธเธงเธเธเธดเธ”เนเธเธเธญเธฃเธฒเธขเน€เธ”เธทเธญเธ"
+            subtitle="เธเธฑเธเธ•เธฒเธกเน€เธ”เธทเธญเธ เธงเธฑเธเธ—เธตเนเน€เธฃเธดเนเธกเธเธฒเธ โ€” เธเธฅเธดเธเธ•เธฑเธงเน€เธฅเธเธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
             rows={report.monthly_by_close}
             onDrillDown={openDrillDown}
           />
