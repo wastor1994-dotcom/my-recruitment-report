@@ -8,7 +8,13 @@
 }
 
 body {
-  @apply min-h-screen antialiased text-slate-800;
-  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(220, 38, 38, 0.08), transparent),
+  @apply min-h-screen antialiased text-slate-900;
+  background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(220, 38, 38, 0.06), transparent),
     var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  @apply text-slate-900;
 }

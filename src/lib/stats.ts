@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import type { RecruitmentRow, Stage } from "./types";
 
 export const STAGE_ORDER: Stage[] = [
@@ -29,6 +30,59 @@ function parseDate(s: string | undefined): string | null {
   const t = Date.parse(s.trim());
   if (Number.isNaN(t)) return null;
   return s.trim().slice(0, 10);
+}
+
+function headerKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function excelCellToIso(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  if (typeof v === "number" && v > 1000) {
+    const d = XLSX.SSF.parse_date_code(v);
+    return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  const t = Date.parse(s);
+  if (!Number.isNaN(t)) return s.slice(0, 10);
+  return null;
+}
+
+function rowFromRecord(rec: Record<string, unknown>): RecruitmentRow {
+  const get = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = rec[k];
+      if (v != null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  };
+  return {
+    candidate_id: get("candidate_id", "id", "รหัส"),
+    position: get("position", "ตำแหน่ง"),
+    department: get("department", "ฝ่าย", "หน่วยงาน"),
+    applied_date: excelCellToIso(rec.applied_date ?? rec["วันที่สมัคร"]) ?? "",
+    stage: normalizeStage(get("stage", "สถานะ")),
+    source: get("source", "แหล่งที่มา"),
+    interview_date: excelCellToIso(rec.interview_date ?? rec["วันที่สัมภาษณ์"]),
+    offer_date: excelCellToIso(rec.offer_date),
+    hired_date: excelCellToIso(rec.hired_date ?? rec["วันที่รับ"]),
+  };
+}
+
+export function parseRecruitmentExcel(buffer: ArrayBuffer): RecruitmentRow[] {
+  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  if (!sheet) return [];
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+  const normalized = rows.map((row) => {
+    const rec: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) {
+      rec[headerKey(k)] = v;
+    }
+    return rowFromRecord(rec);
+  });
+  return normalized.filter((r) => r.candidate_id || r.position || r.department);
 }
 
 export function parseRecruitmentCSV(text: string): RecruitmentRow[] {
