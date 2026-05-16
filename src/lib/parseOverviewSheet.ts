@@ -4,6 +4,10 @@ import type { RateRequestRow } from "./rateRequestTypes";
 /** หัวคอลัมน์ชีต ภาพรวม — แต่ละคอลัมน์มี key ไม่ซ้ำกัน */
 const OVERVIEW_ALIASES: Record<string, string> = {
   เจ้าหน้าที่: "officer",
+  เจ้าหน้าที่สรรหา: "officer",
+  ผู้รับผิดชอบ: "officer",
+  ผู้รับผิดชอบสรรหา: "officer",
+  rm: "officer",
   ลำดับ: "seq_no",
   ประเภทใบขอ: "request_type",
   ตำแหน่ง: "position",
@@ -87,7 +91,11 @@ function scoreHeaderRow(cells: unknown[]): number {
   let score = 0;
   for (const cell of cells) {
     const c = canonicalHeader(String(cell ?? ""));
-    if (["date_notified", "close_date", "start_date", "status", "position", "unit", "hire_name", "kpi_raw"].includes(c)) {
+    if (
+      ["date_notified", "close_date", "start_date", "status", "position", "unit", "hire_name", "kpi_raw", "officer"].includes(
+        c,
+      )
+    ) {
       score += 2;
     }
     if (OVERVIEW_ALIASES[String(cell ?? "").trim()]) score += 1;
@@ -113,10 +121,27 @@ function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): RateRequ
   const recruitment_days = parseNumber(rec.recruitment_days);
   const kpi_raw = str("kpi_raw");
 
+  let officer = str("officer");
+  if (!officer) {
+    for (const [k, v] of Object.entries(rec)) {
+      const key = k.toLowerCase();
+      if (
+        (key.includes("เจ้าหน้าที่") || key.includes("ผู้รับผิดชอบ") || key === "officer" || key === "rm") &&
+        !key.includes("ระยะเวลา")
+      ) {
+        const name = String(v ?? "").trim();
+        if (name) {
+          officer = name;
+          break;
+        }
+      }
+    }
+  }
+
   return {
     id: seq_no ? `${seq_no}-${rowIndex + 1}` : `row-${rowIndex + 1}`,
     seq_no,
-    officer: str("officer"),
+    officer,
     request_type: str("request_type"),
     date_notified,
     date_required: excelCellToIso(rec.date_required) ?? "",
