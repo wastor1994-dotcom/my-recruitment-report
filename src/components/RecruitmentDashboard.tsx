@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { DetailModal } from "@/components/DetailModal";
 import { computeKpiReport } from "@/lib/kpiReport";
+import {
+  drillDownTitle,
+  filterRowsForDrillDown,
+  type DrillDownFilter,
+} from "@/lib/kpiDrillDown";
 import { parseOverviewExcel } from "@/lib/parseOverviewSheet";
-import type { KpiReport, MonthlyKpiRow, PendingItem, StatusCount } from "@/lib/rateRequestTypes";
+import type { KpiReport, MonthlyKpiRow, PendingItem, StatusCount, RateRequestRow } from "@/lib/rateRequestTypes";
 import { KPI_TARGET_DAYS } from "@/lib/rateRequestTypes";
 
 const PROGRESS = {
@@ -61,6 +67,36 @@ function mapProgress(phaseRatio: number, phaseStart: number, phaseEnd: number): 
   return Math.round(phaseStart + phaseRatio * (phaseEnd - phaseStart));
 }
 
+function ClickableNum({
+  value,
+  onClick,
+  className = "",
+  disabled,
+}: {
+  value: string | number;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  const n =
+    typeof value === "number"
+      ? value
+      : Number(String(value).replace(/,/g, "").replace(/(Pass|Fail)\s*/gi, "").trim()) || 0;
+  if (disabled || n === 0) {
+    return <span className={className}>{value}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`cursor-pointer underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-red-300 rounded ${className}`}
+      title="คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา"
+    >
+      {value}
+    </button>
+  );
+}
+
 function UploadProgress({ percent, label }: { percent: number; label: string }) {
   return (
     <div className="w-full max-w-md">
@@ -78,25 +114,55 @@ function UploadProgress({ percent, label }: { percent: number; label: string }) 
   );
 }
 
-function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function MetricCard({
+  label,
+  value,
+  sub,
+  onClick,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  onClick?: () => void;
+}) {
   return (
     <div className="rounded-2xl border-2 border-red-100 bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-slate-700">{label}</p>
-      <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">{value}</p>
+      <div className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-red-700">
+        {onClick && (typeof value === "string" || typeof value === "number") ? (
+          <ClickableNum value={value} onClick={onClick} className="text-3xl font-bold text-red-700" />
+        ) : (
+          value
+        )}
+      </div>
       {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
     </div>
   );
 }
 
-function PassFailBadge({ pass, fail }: { pass: number; fail: number }) {
+function PassFailBadge({
+  pass,
+  fail,
+  onPassClick,
+  onFailClick,
+}: {
+  pass: number;
+  fail: number;
+  onPassClick: () => void;
+  onFailClick: () => void;
+}) {
   return (
     <span className="inline-flex flex-wrap gap-2">
-      <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-        Pass {pass}
-      </span>
-      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-        Fail {fail}
-      </span>
+      <ClickableNum
+        value={`Pass ${pass}`}
+        onClick={onPassClick}
+        className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-200"
+      />
+      <ClickableNum
+        value={`Fail ${fail}`}
+        onClick={onFailClick}
+        className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 hover:bg-red-200"
+      />
     </span>
   );
 }
@@ -106,12 +172,20 @@ function MonthlyTable({
   subtitle,
   rows,
   pivotStyle,
+  onDrillDown,
 }: {
   title: string;
   subtitle: string;
   rows: MonthlyKpiRow[];
   pivotStyle?: boolean;
+  onDrillDown: (filter: DrillDownFilter, monthLabel?: string) => void;
 }) {
+  const cell = (n: number, onClick: () => void, className: string) =>
+    n > 0 ? (
+      <ClickableNum value={n} onClick={onClick} className={className} />
+    ) : (
+      <span className={className}>{n}</span>
+    );
   const totals = rows.reduce(
     (acc, r) => ({
       total_notified: acc.total_notified + r.total_notified,
@@ -157,22 +231,46 @@ function MonthlyTable({
               {rows.map((r) => (
                 <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
                   <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{r.pass}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-red-700">{r.fail}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-amber-800">{r.pending_over_15}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">{r.pending_under_15}</td>
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold">{r.total_notified}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">{r.pending}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">
+                    {cell(r.pass, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pass" }, r.label), "text-emerald-700 font-semibold")}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-red-700">
+                    {cell(r.fail, () => onDrillDown({ type: "month_notify", month: r.month, metric: "fail" }, r.label), "text-red-700 font-semibold")}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-800">
+                    {cell(r.pending_over_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_over" }, r.label), "text-amber-800 font-semibold")}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    {cell(r.pending_under_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_under" }, r.label), "text-slate-700 font-semibold")}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                    {cell(r.total_notified, () => onDrillDown({ type: "month_notify", month: r.month, metric: "total" }, r.label), "font-semibold text-slate-900")}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-amber-700">
+                    {cell(r.pending, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending" }, r.label), "text-amber-700 font-semibold")}
+                  </td>
                 </tr>
               ))}
               <tr className="bg-red-50 font-bold text-red-900">
                 <td className="px-4 py-3">Grand Total</td>
-                <td className="px-4 py-3 text-right tabular-nums text-emerald-800">{totals.pass}</td>
-                <td className="px-4 py-3 text-right tabular-nums text-red-800">{totals.fail}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{totals.pending_over_15}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{totals.pending_under_15}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{totals.total_notified}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{totals.pending}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-emerald-800">
+                  {cell(totals.pass, () => onDrillDown({ type: "pass" }), "text-emerald-800 font-bold")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums text-red-800">
+                  {cell(totals.fail, () => onDrillDown({ type: "fail" }), "text-red-800 font-bold")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {cell(totals.pending_over_15, () => onDrillDown({ type: "pending_over" }), "font-bold")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {cell(totals.pending_under_15, () => onDrillDown({ type: "pending_under" }), "font-bold")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {cell(totals.total_notified, () => onDrillDown({ type: "all_requests" }), "font-bold")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {cell(totals.pending, () => onDrillDown({ type: "pending" }), "font-bold")}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -200,13 +298,15 @@ function MonthlyTable({
               <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
                 <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
                 <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
-                  {r.closed_total}
+                  {cell(r.closed_total, () => onDrillDown({ type: "month_hired", month: r.month }, r.label), "font-semibold text-slate-900")}
                 </td>
               </tr>
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
               <td className="px-4 py-3">Grand Total</td>
-              <td className="px-4 py-3 text-right tabular-nums">{totals.closed_total}</td>
+              <td className="px-4 py-3 text-right tabular-nums">
+                {cell(totals.closed_total, () => onDrillDown({ type: "hired" }), "font-bold")}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -215,7 +315,13 @@ function MonthlyTable({
   );
 }
 
-function StatusTable({ rows }: { rows: StatusCount[] }) {
+function StatusTable({
+  rows,
+  onDrillDown,
+}: {
+  rows: StatusCount[];
+  onDrillDown: (filter: DrillDownFilter) => void;
+}) {
   const total = rows.reduce((s, r) => s + r.count, 0);
   return (
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
@@ -236,13 +342,23 @@ function StatusTable({ rows }: { rows: StatusCount[] }) {
               <tr key={r.status} className="border-b border-red-50 hover:bg-red-50/30">
                 <td className="px-4 py-2.5 font-medium text-slate-900">{r.status}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-red-700">
-                  {r.count.toLocaleString("th-TH")}
+                  <ClickableNum
+                    value={r.count.toLocaleString("th-TH")}
+                    onClick={() => onDrillDown({ type: "status", status: r.status })}
+                    className="font-semibold text-red-700"
+                  />
                 </td>
               </tr>
             ))}
             <tr className="bg-red-50 font-bold text-red-900">
               <td className="px-4 py-3">รวม</td>
-              <td className="px-4 py-3 text-right tabular-nums">{total.toLocaleString("th-TH")}</td>
+              <td className="px-4 py-3 text-right tabular-nums">
+                <ClickableNum
+                  value={total.toLocaleString("th-TH")}
+                  onClick={() => onDrillDown({ type: "all_requests" })}
+                  className="font-bold text-red-900"
+                />
+              </td>
             </tr>
           </tbody>
         </table>
@@ -251,7 +367,13 @@ function StatusTable({ rows }: { rows: StatusCount[] }) {
   );
 }
 
-function PendingTable({ items }: { items: PendingItem[] }) {
+function PendingTable({
+  items,
+  onDrillDown,
+}: {
+  items: PendingItem[];
+  onDrillDown: (filter: DrillDownFilter) => void;
+}) {
   const over = items.filter((i) => i.over_15).length;
   const under = items.length - over;
 
@@ -261,8 +383,18 @@ function PendingTable({ items }: { items: PendingItem[] }) {
         <h3 className="text-lg font-bold text-red-800">ใบขอที่ยังคงค้าง</h3>
         <p className="mt-1 text-sm text-slate-600">
           KPI สรรหา {KPI_TARGET_DAYS} วัน — เกิน {KPI_TARGET_DAYS} วัน:{" "}
-          <span className="font-bold text-red-700">{over}</span> ใบ | ยังไม่เกิน:{" "}
-          <span className="font-bold text-emerald-700">{under}</span> ใบ
+          <ClickableNum
+            value={over}
+            onClick={() => onDrillDown({ type: "pending_over" })}
+            className="font-bold text-red-700"
+          />{" "}
+          ใบ | ยังไม่เกิน:{" "}
+          <ClickableNum
+            value={under}
+            onClick={() => onDrillDown({ type: "pending_under" })}
+            className="font-bold text-emerald-700"
+          />{" "}
+          ใบ
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -317,12 +449,25 @@ function PendingTable({ items }: { items: PendingItem[] }) {
 
 export function RecruitmentDashboard() {
   const [report, setReport] = useState<KpiReport | null>(null);
+  const [sourceRows, setSourceRows] = useState<RateRequestRow[]>([]);
+  const [drillDown, setDrillDown] = useState<DrillDownFilter | null>(null);
+  const [drillMonthLabel, setDrillMonthLabel] = useState<string | undefined>();
   const [sheetName, setSheetName] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadPercent, setUploadPercent] = useState(0);
   const [uploadLabel, setUploadLabel] = useState("");
+
+  const openDrillDown = (filter: DrillDownFilter, monthLabel?: string) => {
+    setDrillDown(filter);
+    setDrillMonthLabel(monthLabel);
+  };
+
+  const drillRows = useMemo(
+    () => (drillDown ? filterRowsForDrillDown(sourceRows, drillDown) : []),
+    [drillDown, sourceRows],
+  );
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -357,10 +502,12 @@ export function RecruitmentDashboard() {
           `ไม่พบข้อมูลในชีต "${result.sheetName || "ภาพรวม"}" (${result.rawRowCount} แถวดิบ) — ตรวจสอบหัวคอลัมน์ เช่น วันที่แจ้ง, สถานะ, วันที่ปิด/เริ่มงาน`,
         );
         setReport(null);
+        setSourceRows([]);
         setFileName(null);
         setSheetName(null);
         return;
       }
+      setSourceRows(result.rows);
       setReport(computeKpiReport(result.rows));
       setFileName(file.name);
       setSheetName(result.sheetName);
@@ -370,6 +517,7 @@ export function RecruitmentDashboard() {
       const msg = err instanceof Error ? err.message : "unknown";
       setParseError(`อ่านไฟล์ Excel ไม่สำเร็จ (${msg})`);
       setReport(null);
+      setSourceRows([]);
       setFileName(null);
     } finally {
       e.target.value = "";
@@ -428,6 +576,16 @@ export function RecruitmentDashboard() {
   return (
     <>
       {uploadOverlay}
+      {drillDown ? (
+        <DetailModal
+          title={drillDownTitle(drillDown, drillMonthLabel)}
+          rows={drillRows}
+          onClose={() => {
+            setDrillDown(null);
+            setDrillMonthLabel(undefined);
+          }}
+        />
+      ) : null}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-8 flex flex-col gap-4 border-b-2 border-red-100 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -442,7 +600,8 @@ export function RecruitmentDashboard() {
               ) : null}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              KPI ปิดใบขอภายใน {KPI_TARGET_DAYS} วัน = Pass | เกิน {KPI_TARGET_DAYS} วัน = Fail
+              KPI ปิดใบขอภายใน {KPI_TARGET_DAYS} วัน = Pass | เกิน {KPI_TARGET_DAYS} วัน = Fail —{" "}
+              <span className="font-medium text-red-700">คลิกตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา</span>
             </p>
           </div>
           <label
@@ -460,55 +619,118 @@ export function RecruitmentDashboard() {
             <h2 className="text-lg font-bold text-white">สรุปภาพรวมทุกเดือน</h2>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-            <MetricCard label="ใบขอรวม" value={grand.total_requests.toLocaleString("th-TH")} sub="ตรง Pivot Grand Total" />
+            <MetricCard
+              label="ใบขอรวม"
+              value={grand.total_requests.toLocaleString("th-TH")}
+              sub="คลิกดูรายละเอียด"
+              onClick={() => openDrillDown({ type: "all_requests" })}
+            />
             <MetricCard
               label="ปิดใบขอทั้งหมด"
               value={grand.total_hired.toLocaleString("th-TH")}
               sub="ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน"
+              onClick={() => openDrillDown({ type: "hired" })}
             />
-            <MetricCard label="ค้าง (KPI N/A)" value={grand.total_pending.toLocaleString("th-TH")} />
+            <MetricCard
+              label="ค้าง (KPI N/A)"
+              value={grand.total_pending.toLocaleString("th-TH")}
+              onClick={() => openDrillDown({ type: "pending" })}
+            />
             <MetricCard
               label="Pass (≤15 วัน)"
               value={grand.total_pass.toLocaleString("th-TH")}
               sub="ปิดทัน KPI"
+              onClick={() => openDrillDown({ type: "pass" })}
             />
             <MetricCard
               label="Fail (>15 วัน)"
               value={grand.total_fail.toLocaleString("th-TH")}
               sub="ปิดเกิน KPI"
+              onClick={() => openDrillDown({ type: "fail" })}
             />
             <MetricCard
               label="ค้างเกิน / ไม่เกิน 15 วัน"
-              value={`${grand.pending_over_15} / ${grand.pending_under_15}`}
+              value={
+                <span>
+                  <ClickableNum
+                    value={grand.pending_over_15}
+                    onClick={() => openDrillDown({ type: "pending_over" })}
+                    className="text-3xl font-bold text-red-700"
+                  />
+                  <span className="mx-1 text-slate-400">/</span>
+                  <ClickableNum
+                    value={grand.pending_under_15}
+                    onClick={() => openDrillDown({ type: "pending_under" })}
+                    className="text-3xl font-bold text-red-700"
+                  />
+                </span>
+              }
               sub="จากคอลัมน์ ระยะเวลาสรรหา"
             />
           </div>
           <div className="border-t border-red-100 bg-red-50/80 px-5 py-4">
             <p className="text-sm text-slate-800">
-              <span className="font-bold text-red-800">บรรทัดสรุป:</span> ใบขอรวม {grand.total_requests} | ปิดใบขอ{" "}
-              {grand.total_hired} | ค้าง {grand.total_pending} (เกิน {grand.pending_over_15} / ยังไม่เกิน{" "}
-              {grand.pending_under_15}) | KPI (<PassFailBadge pass={grand.total_pass} fail={grand.total_fail} />)
+              <span className="font-bold text-red-800">บรรทัดสรุป:</span> ใบขอรวม{" "}
+              <ClickableNum
+                value={grand.total_requests}
+                onClick={() => openDrillDown({ type: "all_requests" })}
+                className="font-bold text-red-800"
+              />{" "}
+              | ปิดใบขอ{" "}
+              <ClickableNum
+                value={grand.total_hired}
+                onClick={() => openDrillDown({ type: "hired" })}
+                className="font-bold text-red-800"
+              />{" "}
+              | ค้าง{" "}
+              <ClickableNum
+                value={grand.total_pending}
+                onClick={() => openDrillDown({ type: "pending" })}
+                className="font-bold text-red-800"
+              />{" "}
+              (เกิน{" "}
+              <ClickableNum
+                value={grand.pending_over_15}
+                onClick={() => openDrillDown({ type: "pending_over" })}
+                className="font-bold text-red-800"
+              />{" "}
+              / ยังไม่เกิน{" "}
+              <ClickableNum
+                value={grand.pending_under_15}
+                onClick={() => openDrillDown({ type: "pending_under" })}
+                className="font-bold text-red-800"
+              />
+              ) | KPI (
+              <PassFailBadge
+                pass={grand.total_pass}
+                fail={grand.total_fail}
+                onPassClick={() => openDrillDown({ type: "pass" })}
+                onFailClick={() => openDrillDown({ type: "fail" })}
+              />
+              )
             </p>
           </div>
         </section>
 
         <main className="space-y-8">
-          <StatusTable rows={report.status_counts} />
+          <StatusTable rows={report.status_counts} onDrillDown={openDrillDown} />
 
           <MonthlyTable
             title="สรุปรายเดือน (ตาม Pivot — เดือนวันที่แจ้ง)"
-            subtitle="Pass/Fail จากคอลัมน์ KPI | ค้าง = N/A แยกเกิน/ไม่เกิน 15 วัน จาก ระยะเวลาสรรหา"
+            subtitle="คลิกตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา"
             rows={report.monthly}
             pivotStyle
+            onDrillDown={openDrillDown}
           />
 
           <MonthlyTable
             title="จำนวนปิดใบขอรายเดือน"
-            subtitle="นับตามเดือน วันที่เริ่มงาน (ตรงคอลัมน์ จำนวนปิดใบขอ ใน Pivot)"
+            subtitle="นับตามเดือน วันที่เริ่มงาน — คลิกตัวเลขดูรายละเอียด"
             rows={report.monthly_by_close}
+            onDrillDown={openDrillDown}
           />
 
-          <PendingTable items={report.pending_items} />
+          <PendingTable items={report.pending_items} onDrillDown={openDrillDown} />
         </main>
       </div>
     </>
