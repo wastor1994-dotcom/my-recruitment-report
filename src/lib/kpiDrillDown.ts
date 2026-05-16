@@ -1,3 +1,4 @@
+import { monthKeyFromIso } from "./dates";
 import {
   effectiveCloseDate,
   getKpiBucket,
@@ -8,8 +9,7 @@ import {
 import type { RateRequestRow } from "./rateRequestTypes";
 
 function monthKey(iso: string): string {
-  const d = new Date(iso + "T12:00:00");
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return monthKeyFromIso(iso);
 }
 
 export type DrillDownFilter =

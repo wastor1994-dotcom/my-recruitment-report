@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { formatLocalIso } from "./dates";
 import type { RateRequestRow } from "./rateRequestTypes";
 
 /** หัวคอลัมน์ชีต ภาพรวม — แต่ละคอลัมน์มี key ไม่ซ้ำกัน */
@@ -59,7 +60,7 @@ function canonicalHeader(raw: string): string {
 function excelCellToIso(v: unknown): string | null {
   if (v == null || v === "") return null;
   if (v instanceof Date && !Number.isNaN(v.getTime())) {
-    return v.toISOString().slice(0, 10);
+    return formatLocalIso(v);
   }
   if (typeof v === "number" && v > 1000) {
     const d = XLSX.SSF.parse_date_code(v);
@@ -75,7 +76,7 @@ function excelCellToIso(v: unknown): string | null {
     return `${y}-${String(Number(dmy[2])).padStart(2, "0")}-${String(Number(dmy[1])).padStart(2, "0")}`;
   }
   const t = Date.parse(s);
-  if (!Number.isNaN(t)) return new Date(t).toISOString().slice(0, 10);
+  if (!Number.isNaN(t)) return formatLocalIso(new Date(t));
   return null;
 }
 

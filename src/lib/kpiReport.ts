@@ -1,3 +1,4 @@
+import { monthKeyFromIso, todayLocalIso } from "./dates";
 import type {
   KpiGrandTotal,
   KpiReport,
@@ -9,8 +10,7 @@ import type {
 import { KPI_TARGET_DAYS } from "./rateRequestTypes";
 
 function monthKey(iso: string): string {
-  const d = new Date(iso + "T12:00:00");
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return monthKeyFromIso(iso);
 }
 
 function monthLabel(key: string): string {
@@ -40,17 +40,8 @@ function daysBetween(startIso: string, endIso: string): number {
   return Math.max(0, Math.floor((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24)));
 }
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-/** ตรง Pivot: อ่านจากคอลัมน์ KPI — Pass / Fail / N/A (ค้าง) */
-export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
-  const k = row.kpi_raw.trim().toLowerCase();
-  if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a")) return "pending";
-  if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
-  if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
-  return "pending";
+function normalizeKpi(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, "");
 }
 
 /** ตรง Pivot คอลัมน์ จำนวนปิดใบขอ — มีชื่อพนักงานเริ่มงาน หรือ วันที่เริ่มงาน */
@@ -58,20 +49,41 @@ export function isHired(row: RateRequestRow): boolean {
   return Boolean(row.hire_name.trim()) || Boolean(row.start_date);
 }
 
+/** ตรง Pivot: อ่านจากคอลัมน์ KPI — Pass / Fail / N/A (ค้าง) */
+export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
+  const k = normalizeKpi(row.kpi_raw);
+  if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
+  if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
+  if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a")) {
+    if (isHired(row)) {
+      if (row.recruitment_days != null) {
+        return row.recruitment_days <= KPI_TARGET_DAYS ? "pass" : "fail";
+      }
+      return "fail";
+    }
+    return "pending";
+  }
+  const status = row.status_raw.trim().toLowerCase();
+  if (status.includes("ค้าง") || status.includes("รอสรรหา") || status.includes("รอ")) {
+    return "pending";
+  }
+  return "pending";
+}
+
 export function effectiveCloseDate(row: RateRequestRow): string | null {
   return row.start_date ?? row.close_date ?? null;
 }
 
-/** ใบขอที่ยังค้าง = KPI เป็น N/A / ว่าง (ตรง Pivot) */
+/** ใบขอที่ยังค้าง = KPI N/A และยังไม่ปิด (ตรง Pivot คอลัมน์ จำนวนค้าง) */
 export function isPending(row: RateRequestRow): boolean {
-  return getKpiBucket(row) === "pending";
+  return getKpiBucket(row) === "pending" && !isHired(row);
 }
 
 /** ค้างเกินกำหนด — ใช้คอลัมน์ ระยะเวลาสรรหา ก่อน แล้วค่อยคำนวณจากวันที่แจ้ง */
 export function isPendingOverdue(row: RateRequestRow): boolean {
   if (!isPending(row)) return false;
   if (row.recruitment_days != null) return row.recruitment_days > KPI_TARGET_DAYS;
-  if (row.date_notified) return daysBetween(row.date_notified, todayIso()) > KPI_TARGET_DAYS;
+  if (row.date_notified) return daysBetween(row.date_notified, todayLocalIso()) > KPI_TARGET_DAYS;
   return false;
 }
 
@@ -181,7 +193,7 @@ function buildPendingItems(rows: RateRequestRow[]): PendingItem[] {
     .map((r) => {
       const backlog_days =
         r.recruitment_days ??
-        (r.date_notified ? daysBetween(r.date_notified, todayIso()) : 0);
+        (r.date_notified ? daysBetween(r.date_notified, todayLocalIso()) : 0);
       return {
         id: r.id,
         unit: r.unit || "—",
@@ -206,11 +218,24 @@ function buildStatusCounts(rows: RateRequestRow[]): StatusCount[] {
     .sort((a, b) => b.count - a.count);
 }
 
+function mergeClosedIntoMonthly(
+  byNotify: MonthlyKpiRow[],
+  byClose: MonthlyKpiRow[],
+): MonthlyKpiRow[] {
+  const closeMap = new Map(byClose.map((m) => [m.month, m.closed_total]));
+  return byNotify.map((m) => ({
+    ...m,
+    closed_total: closeMap.get(m.month) ?? 0,
+  }));
+}
+
 export function computeKpiReport(rows: RateRequestRow[]): KpiReport {
+  const monthly = buildMonthlyByNotified(rows);
+  const monthly_by_close = buildMonthlyHired(rows);
   return {
     grand: buildGrandTotal(rows),
-    monthly: buildMonthlyByNotified(rows),
-    monthly_by_close: buildMonthlyHired(rows),
+    monthly: mergeClosedIntoMonthly(monthly, monthly_by_close),
+    monthly_by_close,
     pending_items: buildPendingItems(rows),
     status_counts: buildStatusCounts(rows),
   };
