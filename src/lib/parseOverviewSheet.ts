@@ -57,7 +57,7 @@ function canonicalHeader(raw: string): string {
   return OVERVIEW_ALIASES[h] ?? h;
 }
 
-/** แปลง Excel serial เป็นปฏิทิน (ตรงกับ Pivot — ไม่ผ่าน timezone) */
+/** แปลง Excel serial เป็นปฏิทิน (ตรงกับชีต ภาพรวม — ไม่ผ่าน timezone) */
 function excelSerialToIso(n: number): string | null {
   if (!Number.isFinite(n) || n < 1) return null;
   const d = XLSX.SSF.parse_date_code(n);
@@ -247,19 +247,22 @@ function parseSheet(
   return result;
 }
 
-function findOverviewSheetName(names: string[]): string {
+/** ค้นหาเฉพาะชีต ภาพรวม — ไม่อ่านชีต Pivot หรือชีตอื่น */
+function findOverviewSheetName(names: string[]): string | null {
   const exact = names.find((n) => n.trim() === "ภาพรวม");
   if (exact) return exact;
   const partial = names.find(
     (n) => n.includes("ภาพรวม") || n.toLowerCase().includes("overview"),
   );
-  return partial ?? names[0] ?? "";
+  return partial ?? null;
 }
 
 export type OverviewParseResult = {
   rows: RateRequestRow[];
   sheetName: string;
   rawRowCount: number;
+  /** true เมื่อไฟล์ไม่มีชีต ภาพรวม (ไม่อ่านชีตแรกแทน) */
+  missingOverviewSheet?: boolean;
 };
 
 /** ratio 0–1 ภายในขั้นตอน parse */
@@ -270,16 +273,21 @@ export async function parseOverviewExcel(
   onProgress?.(0);
   await yieldToMain();
 
-  // cellDates: false → ได้เลข serial ตรงกับ Excel/Pivot (ไม่เลื่อนเดือนบน Vercel UTC)
+  // cellDates: false → ได้เลข serial ตรงกับ Excel ชีต ภาพรวม (ไม่เลื่อนเดือนบน Vercel UTC)
   const wb = XLSX.read(buffer, { type: "array", cellDates: false });
   onProgress?.(0.12);
   await yieldToMain();
 
   const sheetName = findOverviewSheetName(wb.SheetNames);
+  if (!sheetName) {
+    onProgress?.(1);
+    return { rows: [], sheetName: "", rawRowCount: 0, missingOverviewSheet: true };
+  }
+
   const sheet = wb.Sheets[sheetName];
   if (!sheet) {
     onProgress?.(1);
-    return { rows: [], sheetName: "", rawRowCount: 0 };
+    return { rows: [], sheetName: "", rawRowCount: 0, missingOverviewSheet: true };
   }
 
   onProgress?.(0.2);

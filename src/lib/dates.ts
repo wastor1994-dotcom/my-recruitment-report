@@ -1,4 +1,4 @@
-/** โซนเวลาไทย — ให้ตรง Excel / Pivot บน Vercel (เซิร์ฟเวอร์เป็น UTC) */
+/** โซนเวลาไทย — ให้ตรงวันที่ในชีต ภาพรวม บน Vercel (เซิร์ฟเวอร์เป็น UTC) */
 export const REPORT_TIME_ZONE = "Asia/Bangkok";
 
 function bangkokParts(d: Date) {

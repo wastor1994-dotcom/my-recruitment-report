@@ -12,7 +12,7 @@ const strings = {
   chooseExcel: "เลือกไฟล์ Excel",
   uploadingFile: "กำลังอ่านไฟล์…",
   uploadHint:
-    'อ่านจากชีต "ภาพรวม" — วันที่แจ้ง, วันที่ปิด/เริ่มงาน, สถานะ, หน่วยงาน, ตำแหน่ง',
+    'อ่านเฉพาะชีต "ภาพรวม" (ไม่อ่านชีต Pivot หรือชีตอื่น) — วันที่แจ้ง, วันที่เริ่มงาน, สถานะ, KPI, หน่วยงาน, ตำแหน่ง',
   changeExcel: "เปลี่ยนไฟล์ Excel",
   uploading: "กำลังโหลด…",
   fileLabel: "ไฟล์",
@@ -27,7 +27,16 @@ const strings = {
   cardClickHint: "คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา",
   numClickTitle: "คลิกดูรายละเอียดตำแหน่งและเจ้าหน้าที่สรรหา",
   totalRequests: "ใบขอรวม",
-  pivotGrandTotal: "ตรง Pivot Grand Total",
+  overviewRequestsSub: "จากชีต ภาพรวม (มีวันที่แจ้ง)",
+  monthlyByNotifyTitle: "สรุปรายเดือน (เดือนวันที่แจ้ง)",
+  monthlyByNotifySubtitle:
+    "จากชีต ภาพรวม — Pass/Fail จากคอลัมน์ KPI | ค้าง = N/A แยกเกิน/ไม่เกิน 15 วัน จาก ระยะเวลาสรรหา",
+  monthlyByStartTitle: "จำนวนปิดใบขอรายเดือน",
+  monthlyByStartSubtitle:
+    "จากชีต ภาพรวม — นับตามเดือน วันที่เริ่มงาน (ไม่ใช่วันที่แจ้ง)",
+  statusTableSubtitle: "จากคอลัมน์ สถานะ ในชีต ภาพรวม",
+  parseMissingOverviewSheet:
+    'ไม่พบชีต "ภาพรวม" ในไฟล์นี้ — ระบบอ่านเฉพาะชีตนี้เท่านั้น (ไม่อ่านชีต Pivot หรือชีตอื่น)',
   totalHired: "ปิดใบขอทั้งหมด",
   hiredSub: "ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน",
   pending: "ค้าง (KPI N/A)",

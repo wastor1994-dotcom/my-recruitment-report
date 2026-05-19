@@ -47,7 +47,7 @@ export type StatusCount = {
 
 export type KpiGrandTotal = {
   total_rows: number;
-  /** ใบขอรวม (มีวันที่แจ้ง) — ตรง Pivot Grand Total */
+  /** ใบขอรวม (มีวันที่แจ้ง) — จากชีต ภาพรวม */
   total_requests: number;
   total_notified: number;
   /** ปิดใบขอ / รับเข้าทำงาน — ตรง จำนวนปิดใบขอ */

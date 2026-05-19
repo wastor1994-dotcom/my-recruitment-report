@@ -1,7 +1,7 @@
 import { monthKeyFromIso } from "./dates";
 import {
-  effectiveCloseDate,
   getKpiBucket,
+  hireMonthDate,
   isHired,
   isPending,
   isPendingOverdue,
@@ -70,10 +70,9 @@ export function filterRowsForDrillDown(
       }
     }
     case "month_hired":
-      return base.filter((r) => {
-        if (!isHired(r)) return false;
-        const closeIso = effectiveCloseDate(r);
-        return closeIso != null && monthKey(closeIso) === filter.month;
+      return rows.filter((r) => {
+        const startIso = hireMonthDate(r);
+        return startIso != null && monthKey(startIso) === filter.month;
       });
     default:
       return base;

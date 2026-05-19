@@ -168,13 +168,14 @@ function MonthlyTable({
   title,
   subtitle,
   rows,
-  pivotStyle,
+  byNotifyMonth,
   onDrillDown,
 }: {
   title: string;
   subtitle: string;
   rows: MonthlyKpiRow[];
-  pivotStyle?: boolean;
+  /** ตารางรายเดือนตาม วันที่แจ้ง (ชีต ภาพรวม) */
+  byNotifyMonth?: boolean;
   onDrillDown: (filter: DrillDownFilter, monthLabel?: string) => void;
 }) {
   const cell = (n: number, onClick: () => void, cls: string) =>
@@ -205,7 +206,7 @@ function MonthlyTable({
     },
   );
 
-  if (pivotStyle) {
+  if (byNotifyMonth) {
     return (
       <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
         <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
@@ -299,7 +300,9 @@ function StatusTable({
     <section className="overflow-hidden rounded-2xl border-2 border-red-100 bg-white shadow-sm">
       <div className="border-b border-red-100 bg-red-50/60 px-5 py-4">
         <h3 className="text-lg font-bold text-red-800">จำนวนตามสถานะ</h3>
-        <p className="mt-1 text-sm text-slate-600">จากคอลัมน์ สถานะ ในชีต ภาพรวม — รวม {total.toLocaleString("th-TH")} รายการ</p>
+        <p className="mt-1 text-sm text-slate-600">
+          {T.statusTableSubtitle} — รวม {total.toLocaleString("th-TH")} รายการ
+        </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[400px] text-left text-sm">
@@ -434,6 +437,14 @@ export function RecruitmentDashboard() {
       });
       setUploadPercent(90);
       setUploadLabel(T.computingKpi);
+      if (result.missingOverviewSheet) {
+        setParseError(T.parseMissingOverviewSheet);
+        setReport(null);
+        setSourceRows([]);
+        setFileName(null);
+        setSheetName(null);
+        return;
+      }
       if (!result.rows.length) {
         setParseError(
           T.parseNoDataPrefix +
@@ -568,39 +579,48 @@ export function RecruitmentDashboard() {
         <section className="mb-8 overflow-hidden rounded-2xl border-2 border-red-300 bg-gradient-to-br from-red-50 to-white shadow-md">
           <div className="border-b border-red-200 bg-red-600 px-5 py-3">
             <h2 className="text-lg font-bold text-white">{T.grandSummaryTitle}</h2>
-            <p className="mt-0.5 text-sm text-red-100">คลิกที่ตัวเลขเพื่อดูตำแหน่งและเจ้าหน้าที่สรรหา</p>
+            <p className="mt-0.5 text-sm text-red-100">{T.grandSummaryClickHint}</p>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
-            <MetricCard label="ใบขอรวม" value={grand.total_requests.toLocaleString("th-TH")} sub="ตรง Pivot Grand Total" onClick={() => openDrillDown({ type: "all_requests" })} />
             <MetricCard
-              label="ปิดใบขอทั้งหมด"
+              label={T.totalRequests}
+              value={grand.total_requests.toLocaleString("th-TH")}
+              sub={T.overviewRequestsSub}
+              onClick={() => openDrillDown({ type: "all_requests" })}
+            />
+            <MetricCard
+              label={T.totalHired}
               value={grand.total_hired.toLocaleString("th-TH")}
-              sub="ชื่อพนักงานเริ่มงาน / วันที่เริ่มงาน"
+              sub={T.hiredSub}
               onClick={() => openDrillDown({ type: "hired" })}
             />
-            <MetricCard label="ค้าง (KPI N/A)" value={grand.total_pending.toLocaleString("th-TH")} onClick={() => openDrillDown({ type: "pending" })} />
             <MetricCard
-              label="Pass (≤15 วัน)"
+              label={T.pending}
+              value={grand.total_pending.toLocaleString("th-TH")}
+              onClick={() => openDrillDown({ type: "pending" })}
+            />
+            <MetricCard
+              label={`Pass (≤${KPI_TARGET_DAYS} วัน)`}
               value={grand.total_pass.toLocaleString("th-TH")}
-              sub="ปิดทัน KPI"
+              sub={T.passSub}
               onClick={() => openDrillDown({ type: "pass" })}
             />
             <MetricCard
-              label="Fail (>15 วัน)"
+              label={`Fail (>${KPI_TARGET_DAYS} วัน)`}
               value={grand.total_fail.toLocaleString("th-TH")}
-              sub="ปิดเกิน KPI"
+              sub={T.failSub}
               onClick={() => openDrillDown({ type: "fail" })}
             />
             <MetricCard
-              label="ค้างเกิน 15 วัน"
+              label={T.pendingOver}
               value={grand.pending_over_15.toLocaleString("th-TH")}
-              sub="จากคอลัมน์ ระยะเวลาสรรหา"
+              sub={T.durationCol}
               onClick={() => openDrillDown({ type: "pending_over" })}
             />
             <MetricCard
-              label="ค้างยังไม่เกิน 15 วัน"
+              label={T.pendingUnder}
               value={grand.pending_under_15.toLocaleString("th-TH")}
-              sub="จากคอลัมน์ ระยะเวลาสรรหา"
+              sub={T.durationCol}
               onClick={() => openDrillDown({ type: "pending_under" })}
             />
           </div>
@@ -646,16 +666,16 @@ export function RecruitmentDashboard() {
           <StatusTable rows={report.status_counts} onDrillDown={openDrillDown} />
 
           <MonthlyTable
-            title="สรุปรายเดือน (ตาม Pivot — เดือนวันที่แจ้ง)"
-            subtitle="Pass/Fail จากคอลัมน์ KPI | ค้าง = N/A แยกเกิน/ไม่เกิน 15 วัน จาก ระยะเวลาสรรหา"
+            title={T.monthlyByNotifyTitle}
+            subtitle={T.monthlyByNotifySubtitle}
             rows={report.monthly}
-            pivotStyle
+            byNotifyMonth
             onDrillDown={openDrillDown}
           />
 
           <MonthlyTable
-            title="จำนวนปิดใบขอรายเดือน"
-            subtitle="นับตามเดือน วันที่เริ่มงาน (ตรงคอลัมน์ จำนวนปิดใบขอ ใน Pivot)"
+            title={T.monthlyByStartTitle}
+            subtitle={T.monthlyByStartSubtitle}
             rows={report.monthly_by_close}
             onDrillDown={openDrillDown}
           />

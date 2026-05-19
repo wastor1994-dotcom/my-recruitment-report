@@ -44,17 +44,17 @@ function normalizeKpi(raw: string): string {
   return raw.trim().toLowerCase().replace(/\s+/g, "");
 }
 
-/** ตรง Pivot คอลัมน์ จำนวนปิดใบขอ — มีชื่อพนักงานเริ่มงาน หรือ วันที่เริ่มงาน */
+/** ชีต ภาพรวม — ปิดใบขอ: มีชื่อพนักงานเริ่มงาน หรือ วันที่เริ่มงาน */
 export function isHired(row: RateRequestRow): boolean {
   return Boolean(row.hire_name.trim()) || Boolean(row.start_date);
 }
 
-/** ตรง Pivot: อ่านจากคอลัมน์ KPI — Pass / Fail / N/A (ค้าง) */
+/** ชีต ภาพรวม — คอลัมน์ KPI: Pass / Fail / N/A (ค้าง) */
 export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   const k = normalizeKpi(row.kpi_raw);
   if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
   if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
-  // ตรง Pivot: ค่าว่าง / N/A / - = ค้าง (ไม่เปลี่ยนเป็น Pass/Fail แม้มีวันที่เริ่มงาน)
+  // ค่าว่าง / N/A / - = ค้าง (ไม่เปลี่ยนเป็น Pass/Fail แม้มีวันที่เริ่มงาน)
   if (!k || k === "-" || k === "n/a" || k === "na" || k.includes("n/a") || k === "ค้าง") {
     return "pending";
   }
@@ -68,11 +68,12 @@ export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   return "pending";
 }
 
-export function effectiveCloseDate(row: RateRequestRow): string | null {
-  return row.start_date ?? row.close_date ?? null;
+/** เดือนสำหรับนับเริ่มงาน/ปิดใบขอ — ใช้เฉพาะคอลัมน์ วันที่เริ่มงาน */
+export function hireMonthDate(row: RateRequestRow): string | null {
+  return row.start_date;
 }
 
-/** ใบขอที่ยังค้าง = KPI N/A และยังไม่ปิด (ตรง Pivot คอลัมน์ จำนวนค้าง) */
+/** ใบขอที่ยังค้าง = KPI N/A และยังไม่ปิด */
 export function isPending(row: RateRequestRow): boolean {
   return getKpiBucket(row) === "pending" && !isHired(row);
 }
@@ -99,7 +100,7 @@ function emptyMonth(key: string): MonthlyKpiRow {
   };
 }
 
-/** รายเดือนตาม วันที่แจ้ง — ตรง Pivot Row Labels */
+/** รายเดือนตามคอลัมน์ วันที่แจ้ง ในชีต ภาพรวม */
 function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
@@ -126,16 +127,15 @@ function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
-/** จำนวนปิดใบขอรายเดือน — ตามเดือน วันที่เริ่มงาน/ปิด */
+/** จำนวนปิดใบขอรายเดือน — ตามเดือน วันที่เริ่มงาน (ไม่ใช่วันที่แจ้ง/วันที่ปิด) */
 function buildMonthlyHired(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
   for (const row of rows) {
-    if (!isHired(row)) continue;
-    const closeIso = effectiveCloseDate(row);
-    if (!closeIso) continue;
+    const startIso = hireMonthDate(row);
+    if (!startIso) continue;
 
-    const key = monthKey(closeIso);
+    const key = monthKey(startIso);
     let entry = map.get(key);
     if (!entry) {
       entry = emptyMonth(key);
@@ -216,23 +216,12 @@ function buildStatusCounts(rows: RateRequestRow[]): StatusCount[] {
     .sort((a, b) => b.count - a.count);
 }
 
-function mergeClosedIntoMonthly(
-  byNotify: MonthlyKpiRow[],
-  byClose: MonthlyKpiRow[],
-): MonthlyKpiRow[] {
-  const closeMap = new Map(byClose.map((m) => [m.month, m.closed_total]));
-  return byNotify.map((m) => ({
-    ...m,
-    closed_total: closeMap.get(m.month) ?? 0,
-  }));
-}
-
 export function computeKpiReport(rows: RateRequestRow[]): KpiReport {
   const monthly = buildMonthlyByNotified(rows);
   const monthly_by_close = buildMonthlyHired(rows);
   return {
     grand: buildGrandTotal(rows),
-    monthly: mergeClosedIntoMonthly(monthly, monthly_by_close),
+    monthly,
     monthly_by_close,
     pending_items: buildPendingItems(rows),
     status_counts: buildStatusCounts(rows),
