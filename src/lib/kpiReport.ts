@@ -68,6 +68,23 @@ export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   return "pending";
 }
 
+/**
+ * Pass/Fail สำหรับใบขอที่ปิดแล้ว (เริ่มงาน) — ทุกคนต้องอยู่ Pass หรือ Fail
+ * ให้ Pass+Fail รวมเท่าจำนวนปิดใบขอรายเดือน
+ */
+export function getClosedPassFailBucket(row: RateRequestRow): "pass" | "fail" {
+  const k = normalizeKpi(row.kpi_raw);
+  if (k.includes("fail") || k.includes("ไม่ผ่าน") || k === "f") return "fail";
+  if (k.includes("pass") || k === "p" || k.includes("ผ่าน")) return "pass";
+  if (row.recruitment_days != null) {
+    return row.recruitment_days <= KPI_TARGET_DAYS ? "pass" : "fail";
+  }
+  if (row.start_date && row.date_notified) {
+    return daysBetween(row.date_notified, row.start_date) <= KPI_TARGET_DAYS ? "pass" : "fail";
+  }
+  return "fail";
+}
+
 /** สถานะ เริ่มงาน ในชีต ภาพรวม (ไม่รวม รอเริ่มงาน) */
 export function isStartedWork(row: RateRequestRow): boolean {
   const s = row.status_raw.trim();
@@ -154,11 +171,12 @@ function buildMonthlySummary(rows: RateRequestRow[]): MonthlyKpiRow[] {
       }
     }
 
-    if (bucket === "pass" || bucket === "fail") {
+    if (isStartedWork(row)) {
       const hireKey = hireMonthKey(row);
       if (!hireKey) continue;
       const entry = ensureMonth(map, hireKey);
-      if (bucket === "pass") entry.pass += 1;
+      entry.closed_total += 1;
+      if (getClosedPassFailBucket(row) === "pass") entry.pass += 1;
       else entry.fail += 1;
     }
   }
@@ -180,9 +198,8 @@ function buildMonthlyHired(rows: RateRequestRow[]): MonthlyKpiRow[] {
       map.set(key, entry);
     }
     entry.closed_total += 1;
-    const bucket = getKpiBucket(row);
-    if (bucket === "pass") entry.pass += 1;
-    else if (bucket === "fail") entry.fail += 1;
+    if (getClosedPassFailBucket(row) === "pass") entry.pass += 1;
+    else entry.fail += 1;
   }
 
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));

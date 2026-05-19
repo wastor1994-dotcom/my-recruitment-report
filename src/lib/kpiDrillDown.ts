@@ -1,5 +1,6 @@
 import { monthKeyFromIso } from "./dates";
 import {
+  getClosedPassFailBucket,
   getKpiBucket,
   hireMonthKey,
   isHired,
@@ -73,9 +74,9 @@ export function filterRowsForDrillDown(
     }
     case "month_start": {
       return rows.filter((r) => {
-        const bucket = getKpiBucket(r);
-        if (bucket !== filter.metric) return false;
-        return hireMonthKey(r) === filter.month;
+        if (!isStartedWork(r)) return false;
+        if (hireMonthKey(r) !== filter.month) return false;
+        return getClosedPassFailBucket(r) === filter.metric;
       });
     }
     case "month_hired":
