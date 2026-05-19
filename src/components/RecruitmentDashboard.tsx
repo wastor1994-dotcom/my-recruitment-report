@@ -217,21 +217,21 @@ function MonthlyTable({
           <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
               <tr className="border-b border-red-100 bg-white text-slate-700">
-                <th className="px-4 py-3 font-semibold">เดือน (วันที่แจ้ง)</th>
-                <th className="px-4 py-3 font-semibold text-right text-emerald-800">Pass</th>
-                <th className="px-4 py-3 font-semibold text-right text-red-800">Fail</th>
-                <th className="px-4 py-3 font-semibold text-right">ค้างเกิน {KPI_TARGET_DAYS} วัน</th>
-                <th className="px-4 py-3 font-semibold text-right">ค้างยังไม่เกิน</th>
-                <th className="px-4 py-3 font-semibold text-right">รวม</th>
-                <th className="px-4 py-3 font-semibold text-right">จำนวนค้าง</th>
+                <th className="px-4 py-3 font-semibold">เดือน</th>
+                <th className="px-4 py-3 font-semibold text-right text-emerald-800">Pass (เริ่มงาน)</th>
+                <th className="px-4 py-3 font-semibold text-right text-red-800">Fail (เริ่มงาน)</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างเกิน {KPI_TARGET_DAYS} วัน (แจ้ง)</th>
+                <th className="px-4 py-3 font-semibold text-right">ค้างยังไม่เกิน (แจ้ง)</th>
+                <th className="px-4 py-3 font-semibold text-right">รวม (แจ้ง)</th>
+                <th className="px-4 py-3 font-semibold text-right">จำนวนค้าง (แจ้ง)</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.month} className="border-b border-red-50 hover:bg-red-50/30">
                   <td className="px-4 py-3 font-medium text-slate-900">{r.label}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{cell(r.pass, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pass" }, r.label), "text-emerald-700 font-semibold")}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-red-700">{cell(r.fail, () => onDrillDown({ type: "month_notify", month: r.month, metric: "fail" }, r.label), "text-red-700 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{cell(r.pass, () => onDrillDown({ type: "month_start", month: r.month, metric: "pass" }, r.label), "text-emerald-700 font-semibold")}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-red-700">{cell(r.fail, () => onDrillDown({ type: "month_start", month: r.month, metric: "fail" }, r.label), "text-red-700 font-semibold")}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-amber-800">{cell(r.pending_over_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_over" }, r.label), "text-amber-800 font-semibold")}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-slate-700">{cell(r.pending_under_15, () => onDrillDown({ type: "month_notify", month: r.month, metric: "pending_under" }, r.label), "text-slate-700 font-semibold")}</td>
                   <td className="px-4 py-3 text-right tabular-nums font-semibold">{cell(r.total_notified, () => onDrillDown({ type: "month_notify", month: r.month, metric: "total" }, r.label), "font-semibold text-slate-900")}</td>

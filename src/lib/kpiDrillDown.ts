@@ -25,7 +25,12 @@ export type DrillDownFilter =
   | {
       type: "month_notify";
       month: string;
-      metric: "pass" | "fail" | "pending" | "pending_over" | "pending_under" | "total";
+      metric: "pending" | "pending_over" | "pending_under" | "total";
+    }
+  | {
+      type: "month_start";
+      month: string;
+      metric: "pass" | "fail";
     }
   | { type: "month_hired"; month: string };
 
@@ -55,10 +60,6 @@ export function filterRowsForDrillDown(
     case "month_notify": {
       const inMonth = base.filter((r) => monthKey(r.date_notified) === filter.month);
       switch (filter.metric) {
-        case "pass":
-          return inMonth.filter((r) => getKpiBucket(r) === "pass");
-        case "fail":
-          return inMonth.filter((r) => getKpiBucket(r) === "fail");
         case "pending":
           return inMonth.filter(isPending);
         case "pending_over":
@@ -69,6 +70,13 @@ export function filterRowsForDrillDown(
         default:
           return inMonth;
       }
+    }
+    case "month_start": {
+      return rows.filter((r) => {
+        const bucket = getKpiBucket(r);
+        if (bucket !== filter.metric) return false;
+        return hireMonthKey(r) === filter.month;
+      });
     }
     case "month_hired":
       return rows.filter((r) => isStartedWork(r) && hireMonthKey(r) === filter.month);
@@ -98,14 +106,17 @@ export function drillDownTitle(filter: DrillDownFilter, monthLabel?: string): st
     case "month_notify": {
       const m = monthLabel ?? filter.month;
       const labels: Record<string, string> = {
-        pass: "Pass",
-        fail: "Fail",
         pending: "จำนวนค้าง",
         pending_over: "ค้างเกิน 15 วัน",
         pending_under: "ค้างยังไม่เกิน",
-        total: "รวม",
+        total: "รวม (วันที่แจ้ง)",
       };
-      return `${labels[filter.metric] ?? filter.metric} — เดือน ${m}`;
+      return `${labels[filter.metric] ?? filter.metric} — เดือนแจ้ง ${m}`;
+    }
+    case "month_start": {
+      const m = monthLabel ?? filter.month;
+      const label = filter.metric === "pass" ? "Pass" : "Fail";
+      return `${label} — เดือนเริ่มงาน ${m}`;
     }
     case "month_hired":
       return `จำนวนปิดใบขอ — เดือน ${monthLabel ?? filter.month}`;

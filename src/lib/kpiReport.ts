@@ -123,28 +123,44 @@ function emptyMonth(key: string): MonthlyKpiRow {
   };
 }
 
-/** รายเดือนตามคอลัมน์ วันที่แจ้ง ในชีต ภาพรวม */
-function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
+function ensureMonth(map: Map<string, MonthlyKpiRow>, key: string): MonthlyKpiRow {
+  let entry = map.get(key);
+  if (!entry) {
+    entry = emptyMonth(key);
+    map.set(key, entry);
+  }
+  return entry;
+}
+
+/**
+ * สรุปรายเดือน (แถว = เดือนปฏิทิน):
+ * - Pass/Fail → เดือน วันที่เริ่มงาน
+ * - ค้าง / รวมใบขอแจ้ง → เดือน วันที่แจ้ง
+ */
+function buildMonthlySummary(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
   for (const row of rows) {
-    if (!row.date_notified) continue;
-    const key = monthKey(row.date_notified);
-    let entry = map.get(key);
-    if (!entry) {
-      entry = emptyMonth(key);
-      map.set(key, entry);
+    const bucket = getKpiBucket(row);
+
+    if (row.date_notified) {
+      const notifyKey = monthKey(row.date_notified);
+      const entry = ensureMonth(map, notifyKey);
+      entry.total_notified += 1;
+      if (bucket === "pending") {
+        entry.pending += 1;
+        if (isPendingOverdue(row)) entry.pending_over_15 += 1;
+        else entry.pending_under_15 += 1;
+      }
     }
 
-    const bucket = getKpiBucket(row);
-    if (bucket === "pass") entry.pass += 1;
-    else if (bucket === "fail") entry.fail += 1;
-    else {
-      entry.pending += 1;
-      if (isPendingOverdue(row)) entry.pending_over_15 += 1;
-      else entry.pending_under_15 += 1;
+    if (bucket === "pass" || bucket === "fail") {
+      const hireKey = hireMonthKey(row);
+      if (!hireKey) continue;
+      const entry = ensureMonth(map, hireKey);
+      if (bucket === "pass") entry.pass += 1;
+      else entry.fail += 1;
     }
-    entry.total_notified = entry.pass + entry.fail + entry.pending;
   }
 
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
@@ -239,7 +255,7 @@ function buildStatusCounts(rows: RateRequestRow[]): StatusCount[] {
 }
 
 export function computeKpiReport(rows: RateRequestRow[]): KpiReport {
-  const monthly = buildMonthlyByNotified(rows);
+  const monthly = buildMonthlySummary(rows);
   const monthly_by_close = buildMonthlyHired(rows);
   return {
     grand: buildGrandTotal(rows),
