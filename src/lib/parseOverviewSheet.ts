@@ -18,6 +18,8 @@ const OVERVIEW_ALIASES: Record<string, string> = {
   วันที่ต้องการ: "date_required",
   ชื่อพนักงานลาออก: "resigning_name",
   วันที่เริ่มงาน: "start_date",
+  เดือนที่เริ่มงาน: "start_month",
+  เดือนเริ่มงาน: "start_month",
   ชื่อพนักงานเริ่มงาน: "hire_name",
   หมายเหตุ: "remarks",
   ระยะเวลาสรรหา: "recruitment_days",
@@ -37,6 +39,7 @@ const OVERVIEW_ALIASES: Record<string, string> = {
   status: "status",
   date_notified: "date_notified",
   start_date: "start_date",
+  start_month: "start_month",
   close_date: "close_date",
   closed_date: "close_date",
   hire_name: "hire_name",
@@ -102,12 +105,19 @@ function parseNumber(v: unknown): number | null {
   return Number.isNaN(n) ? null : Math.round(n);
 }
 
+/** คอลัมน์ เดือนที่เริ่มงาน — ค่า 1–12 */
+function parseMonthNum(v: unknown): number | null {
+  const n = parseNumber(v);
+  if (n == null || n < 1 || n > 12) return null;
+  return n;
+}
+
 function scoreHeaderRow(cells: unknown[]): number {
   let score = 0;
   for (const cell of cells) {
     const c = canonicalHeader(String(cell ?? ""));
     if (
-      ["date_notified", "close_date", "start_date", "status", "position", "unit", "hire_name", "kpi_raw", "officer"].includes(
+      ["date_notified", "close_date", "start_date", "start_month", "status", "position", "unit", "hire_name", "kpi_raw", "officer"].includes(
         c,
       )
     ) {
@@ -127,6 +137,7 @@ function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): RateRequ
 
   const date_notified = excelCellToIso(rec.date_notified) ?? "";
   const start_date = excelCellToIso(rec.start_date) ?? null;
+  const start_month = parseMonthNum(rec.start_month);
   const close_date = excelCellToIso(rec.close_date) ?? null;
   const hire_name = str("hire_name");
   const status_raw = str("status");
@@ -161,6 +172,7 @@ function rowFromRecord(rec: Record<string, unknown>, rowIndex: number): RateRequ
     date_notified,
     date_required: excelCellToIso(rec.date_required) ?? "",
     start_date,
+    start_month,
     close_date,
     hire_name,
     status_raw,

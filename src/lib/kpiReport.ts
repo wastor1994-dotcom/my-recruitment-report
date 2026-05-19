@@ -68,9 +68,32 @@ export function getKpiBucket(row: RateRequestRow): "pass" | "fail" | "pending" {
   return "pending";
 }
 
-/** เดือนสำหรับนับเริ่มงาน/ปิดใบขอ — ใช้เฉพาะคอลัมน์ วันที่เริ่มงาน */
-export function hireMonthDate(row: RateRequestRow): string | null {
-  return row.start_date;
+/** สถานะ เริ่มงาน ในชีต ภาพรวม (ไม่รวม รอเริ่มงาน) */
+export function isStartedWork(row: RateRequestRow): boolean {
+  const s = row.status_raw.trim();
+  if (!s) return false;
+  if (s.includes("รอเริ่ม")) return false;
+  return s === "เริ่มงาน" || s.includes("เริ่มงาน");
+}
+
+function inferHireYear(row: RateRequestRow): number | null {
+  for (const iso of [row.start_date, row.date_notified, row.close_date]) {
+    if (!iso) continue;
+    const y = Number(iso.split("-")[0]);
+    if (y > 1900 && y < 2200) return y;
+  }
+  return null;
+}
+
+/** เดือน YYYY-MM — ใช้ เดือนที่เริ่มงาน หรือ วันที่เริ่มงาน */
+export function hireMonthKey(row: RateRequestRow): string | null {
+  const year = inferHireYear(row);
+  if (row.start_month != null) {
+    const y = year ?? new Date().getFullYear();
+    return `${y}-${String(row.start_month).padStart(2, "0")}`;
+  }
+  if (row.start_date) return monthKey(row.start_date);
+  return null;
 }
 
 /** ใบขอที่ยังค้าง = KPI N/A และยังไม่ปิด */
@@ -127,15 +150,14 @@ function buildMonthlyByNotified(rows: RateRequestRow[]): MonthlyKpiRow[] {
   return Array.from(map.values()).sort((a, b) => a.month.localeCompare(b.month));
 }
 
-/** จำนวนปิดใบขอรายเดือน — ตามเดือน วันที่เริ่มงาน (ไม่ใช่วันที่แจ้ง/วันที่ปิด) */
+/** จำนวนเริ่มงานรายเดือน — สถานะ เริ่มงาน + เดือนจาก วันที่เริ่มงาน/เดือนที่เริ่มงาน */
 function buildMonthlyHired(rows: RateRequestRow[]): MonthlyKpiRow[] {
   const map = new Map<string, MonthlyKpiRow>();
 
   for (const row of rows) {
-    const startIso = hireMonthDate(row);
-    if (!startIso) continue;
-
-    const key = monthKey(startIso);
+    if (!isStartedWork(row)) continue;
+    const key = hireMonthKey(row);
+    if (!key) continue;
     let entry = map.get(key);
     if (!entry) {
       entry = emptyMonth(key);

@@ -1,10 +1,11 @@
 import { monthKeyFromIso } from "./dates";
 import {
   getKpiBucket,
-  hireMonthDate,
+  hireMonthKey,
   isHired,
   isPending,
   isPendingOverdue,
+  isStartedWork,
 } from "./kpiReport";
 import type { RateRequestRow } from "./rateRequestTypes";
 
@@ -70,10 +71,7 @@ export function filterRowsForDrillDown(
       }
     }
     case "month_hired":
-      return rows.filter((r) => {
-        const startIso = hireMonthDate(r);
-        return startIso != null && monthKey(startIso) === filter.month;
-      });
+      return rows.filter((r) => isStartedWork(r) && hireMonthKey(r) === filter.month);
     default:
       return base;
   }

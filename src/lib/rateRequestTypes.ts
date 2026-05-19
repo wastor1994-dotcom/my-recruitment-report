@@ -6,6 +6,7 @@ export type RateRequestRow = {
   date_notified: string;
   date_required: string;
   start_date: string | null;
+  start_month: number | null;
   close_date: string | null;
   hire_name: string;
   status_raw: string;
