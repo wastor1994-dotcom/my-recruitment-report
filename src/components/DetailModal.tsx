@@ -17,6 +17,20 @@ type OfficerGroup = {
   positions: PositionCount[];
 };
 
+/** ค่าพิเศษเมื่อเลือกกล่อง รวมทุกตำแหน่ง */
+const ALL_POSITIONS_KEY = "__all_positions__";
+
+function groupByPosition(rows: RateRequestRow[]): PositionCount[] {
+  const map = new Map<string, number>();
+  for (const row of rows) {
+    const position = row.position.trim() || "(ไม่ระบุตำแหน่ง)";
+    map.set(position, (map.get(position) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([position, count]) => ({ position, count }))
+    .sort((a, b) => b.count - a.count || a.position.localeCompare(b.position, "th"));
+}
+
 function groupByOfficer(rows: RateRequestRow[]): OfficerGroup[] {
   const map = new Map<string, Map<string, number>>();
   for (const row of rows) {
@@ -55,15 +69,27 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
   const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
 
   const officerGroups = useMemo(() => groupByOfficer(rows), [rows]);
+  const allPositions = useMemo(() => groupByPosition(rows), [rows]);
 
-  const selectedOfficerGroup = useMemo(
-    () => officerGroups.find((g) => g.officer === selectedOfficer) ?? null,
-    [officerGroups, selectedOfficer],
+  const allPositionsGroup = useMemo(
+    (): OfficerGroup => ({
+      officer: ALL_POSITIONS_KEY,
+      count: rows.length,
+      positions: allPositions,
+    }),
+    [rows.length, allPositions],
   );
+
+  const selectedOfficerGroup = useMemo(() => {
+    if (selectedOfficer === ALL_POSITIONS_KEY) return allPositionsGroup;
+    return officerGroups.find((g) => g.officer === selectedOfficer) ?? null;
+  }, [officerGroups, selectedOfficer, allPositionsGroup]);
 
   const displayRows = useMemo(() => {
     let list = rows;
-    if (selectedOfficer) list = list.filter((r) => matchesOfficer(r, selectedOfficer));
+    if (selectedOfficer && selectedOfficer !== ALL_POSITIONS_KEY) {
+      list = list.filter((r) => matchesOfficer(r, selectedOfficer));
+    }
     if (selectedPosition) list = list.filter((r) => matchesPosition(r, selectedPosition));
     return list;
   }, [rows, selectedOfficer, selectedPosition]);
@@ -100,6 +126,11 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
     setSelectedOfficer((prev) => (prev === officer ? null : officer));
   };
 
+  const toggleAllPositions = () => {
+    setSelectedPosition(null);
+    setSelectedOfficer((prev) => (prev === ALL_POSITIONS_KEY ? null : ALL_POSITIONS_KEY));
+  };
+
   const togglePosition = (position: string) => {
     setSelectedPosition((prev) => (prev === position ? null : position));
   };
@@ -127,11 +158,12 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
             </p>
             {selectedOfficer ? (
               <p className="mt-1 text-sm font-medium text-red-700">
-                กำลังดู: {selectedOfficer}
+                กำลังดู:{" "}
+                {selectedOfficer === ALL_POSITIONS_KEY ? "รวมทุกตำแหน่ง" : selectedOfficer}
                 {selectedPosition ? ` → ${selectedPosition}` : ""} ({displayRows.length} ใบ)
               </p>
             ) : (
-              <p className="mt-1 text-xs text-red-600">คลิกชื่อเจ้าหน้าที่เพื่อดูตำแหน่ง</p>
+              <p className="mt-1 text-xs text-red-600">คลิกกล่องด้านซ้ายเพื่อดูตำแหน่ง</p>
             )}
           </div>
           <button
@@ -149,6 +181,25 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
               <div className="max-h-[20vh] overflow-y-auto px-3 py-3 md:max-h-none">
                 <h3 className="text-sm font-bold text-red-800">เจ้าหน้าที่ ({officerGroups.length})</h3>
                 <ul className="mt-2 space-y-1.5 text-sm">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={toggleAllPositions}
+                      className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${
+                        selectedOfficer === ALL_POSITIONS_KEY
+                          ? "border-red-600 bg-red-200 ring-2 ring-red-400"
+                          : "border-red-300 bg-red-50 hover:border-red-500 hover:bg-red-100"
+                      }`}
+                    >
+                      <div className="flex items-baseline justify-between gap-1">
+                        <span className="font-bold text-red-900">รวมทุกตำแหน่ง</span>
+                        <span className="shrink-0 text-xs font-bold text-red-900">
+                          {rows.length} ใบ
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-700">{allPositions.length} ตำแหน่ง</p>
+                    </button>
+                  </li>
                   {officerGroups.map((g) => {
                     const active = selectedOfficer === g.officer;
                     return (
@@ -179,7 +230,9 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
               {selectedOfficerGroup ? (
                 <div className="shrink-0 border-b border-red-100 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                   <h4 className="text-sm font-bold text-red-800">
-                    ตำแหน่งของ {selectedOfficerGroup.officer} ({selectedOfficerGroup.positions.length})
+                    {selectedOfficer === ALL_POSITIONS_KEY
+                      ? `ตำแหน่งทั้งหมด (${selectedOfficerGroup.positions.length})`
+                      : `ตำแหน่งของ ${selectedOfficerGroup.officer} (${selectedOfficerGroup.positions.length})`}
                   </h4>
                   <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
                     {selectedOfficerGroup.positions.map((p) => {
