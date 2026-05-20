@@ -17,8 +17,12 @@ type OfficerGroup = {
   positions: PositionCount[];
 };
 
-/** ค่าพิเศษเมื่อเลือกกล่อง รวมทุกตำแหน่ง */
+/** ค่าพิเศษเมื่อเลือกกล่องรวมตำแหน่งในรายการนี้ (เช่น ค้างเกิน 15 วัน) */
 const ALL_POSITIONS_KEY = "__all_positions__";
+
+function allPositionsBoxLabel(title: string): string {
+  return title ? `รวมตำแหน่ง (${title})` : "รวมทุกตำแหน่ง";
+}
 
 function groupByPosition(rows: RateRequestRow[]): PositionCount[] {
   const map = new Map<string, number>();
@@ -95,8 +99,8 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
   }, [rows, selectedOfficer, selectedPosition]);
 
   useEffect(() => {
-    setSelectedOfficer(null);
     setSelectedPosition(null);
+    setSelectedOfficer(rows.length > 0 ? ALL_POSITIONS_KEY : null);
   }, [rows, title]);
 
   useEffect(() => {
@@ -153,17 +157,17 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
               {title}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              {rows.length.toLocaleString("th-TH")} ใบขอ | {officerGroups.length.toLocaleString("th-TH")}{" "}
-              เจ้าหน้าที่
+              {rows.length.toLocaleString("th-TH")} ใบขอ | {allPositions.length.toLocaleString("th-TH")}{" "}
+              ตำแหน่ง | {officerGroups.length.toLocaleString("th-TH")} เจ้าหน้าที่
             </p>
             {selectedOfficer ? (
               <p className="mt-1 text-sm font-medium text-red-700">
                 กำลังดู:{" "}
-                {selectedOfficer === ALL_POSITIONS_KEY ? "รวมทุกตำแหน่ง" : selectedOfficer}
+                {selectedOfficer === ALL_POSITIONS_KEY ? allPositionsBoxLabel(title) : selectedOfficer}
                 {selectedPosition ? ` → ${selectedPosition}` : ""} ({displayRows.length} ใบ)
               </p>
             ) : (
-              <p className="mt-1 text-xs text-red-600">คลิกกล่องด้านซ้ายเพื่อดูตำแหน่ง</p>
+              <p className="mt-1 text-xs text-red-600">คลิกกล่องด้านซ้ายเพื่อดูตำแหน่งในรายการนี้</p>
             )}
           </div>
           <button
@@ -177,9 +181,9 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
 
         {rows.length > 0 ? (
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <aside className="shrink-0 border-b border-red-100 bg-red-50/50 md:w-52 md:border-b-0 md:border-r lg:w-56">
-              <div className="max-h-[20vh] overflow-y-auto px-3 py-3 md:max-h-none">
-                <h3 className="text-sm font-bold text-red-800">เจ้าหน้าที่ ({officerGroups.length})</h3>
+            <aside className="shrink-0 border-b border-red-100 bg-red-50/50 md:w-56 md:border-b-0 md:border-r lg:w-60">
+              <div className="max-h-[28vh] overflow-y-auto px-3 py-3 md:max-h-none">
+                <h3 className="text-sm font-bold text-red-800">ตำแหน่งในรายการนี้</h3>
                 <ul className="mt-2 space-y-1.5 text-sm">
                   <li>
                     <button
@@ -192,7 +196,7 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
                       }`}
                     >
                       <div className="flex items-baseline justify-between gap-1">
-                        <span className="font-bold text-red-900">รวมทุกตำแหน่ง</span>
+                        <span className="font-bold leading-snug text-red-900">{allPositionsBoxLabel(title)}</span>
                         <span className="shrink-0 text-xs font-bold text-red-900">
                           {rows.length} ใบ
                         </span>
@@ -200,6 +204,10 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
                       <p className="mt-0.5 text-xs text-slate-700">{allPositions.length} ตำแหน่ง</p>
                     </button>
                   </li>
+                </ul>
+
+                <h3 className="mt-4 text-sm font-bold text-red-800">เจ้าหน้าที่ ({officerGroups.length})</h3>
+                <ul className="mt-2 space-y-1.5 text-sm">
                   {officerGroups.map((g) => {
                     const active = selectedOfficer === g.officer;
                     return (
@@ -231,8 +239,8 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
                 <div className="shrink-0 border-b border-red-100 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
                   <h4 className="text-sm font-bold text-red-800">
                     {selectedOfficer === ALL_POSITIONS_KEY
-                      ? `ตำแหน่งทั้งหมด (${selectedOfficerGroup.positions.length})`
-                      : `ตำแหน่งของ ${selectedOfficerGroup.officer} (${selectedOfficerGroup.positions.length})`}
+                      ? `ตำแหน่งในรายการ ${title} (${selectedOfficerGroup.positions.length})`
+                      : `ตำแหน่งของ ${selectedOfficerGroup.officer} — ${title} (${selectedOfficerGroup.positions.length})`}
                   </h4>
                   <div className="mt-2 flex flex-wrap gap-1.5 sm:gap-2">
                     {selectedOfficerGroup.positions.map((p) => {
@@ -259,7 +267,7 @@ export function DetailModal({ title, rows, onClose }: DetailModalProps) {
                 </div>
               ) : (
                 <div className="shrink-0 border-b border-red-100 bg-amber-50/50 px-3 py-2 text-xs text-amber-900 sm:px-4">
-                  เลือกเจ้าหน้าที่ทางซ้ายเพื่อดูตำแหน่งและรายการ
+                  เลือกกล่องด้านซ้ายเพื่อดูตำแหน่งในรายการนี้
                 </div>
               )}
 
