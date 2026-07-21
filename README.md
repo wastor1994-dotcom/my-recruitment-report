@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Employee Checklist
 
-## Getting Started
+ระบบเช็คลิสต์พนักงานรอเริ่มงาน เอกสารติดตามสถานะ และรายชื่อส่งสัมภาษณ์  
+Frontend → API → Google Sheets
 
-First, run the development server:
+## หน้าเว็บ
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- `/` — หน้าแรก
+- `/interview` — รายชื่อส่งสัมภาษณ์
+- `/onboarding` — รอเริ่มงาน + เช็คลิสต์เอกสาร
+
+## สร้าง Google Sheet ใหม่ (โครงเหมือนอ้างอิง)
+
+1. สร้าง Service Account บน Google Cloud แล้วเปิด **Google Sheets API** + **Google Drive API**
+2. ใส่ค่าใน `.env.local`:
+
+```env
+GOOGLE_SERVICE_ACCOUNT_EMAIL=...
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. รันแอปแล้วเรียกสร้าง Sheet:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+curl -X POST http://localhost:3000/api/setup -H "Content-Type: application/json" -d "{\"action\":\"create\"}"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. คัดลอก `spreadsheetId` จาก response ไปใส่ `GOOGLE_CHECKLIST_SHEET_ID`
+5. แชร์ Sheet ให้ Service Account เป็น **Editor**
+6. Restart `npm run dev`
 
-## Learn More
+แท็บที่จะถูกสร้าง:
+- `ส่งสัมภาษณ์`
+- `แจ้งประกัน - แจ้งเข้า`
 
-To learn more about Next.js, take a look at the following resources:
+## รันบนเครื่อง
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+เปิด http://localhost:3000
