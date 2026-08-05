@@ -1,15 +1,17 @@
-# เช็คลิสต์เอกสารพนักงานเริ่มงาน
+# staff-onboarding-checklist
+
+**เช็คลิสต์เอกสารพนักงานเริ่มงาน**
 
 Next.js app สำหรับกรอก/ติ๊กเช็คลิสต์เอกสารพนักงานรอเริ่มงาน และรายชื่อส่งสัมภาษณ์  
-เก็บข้อมูลลง **Google Sheet** (โครงเหมือนชีตอ้างอิง Data LBA)
+เก็บข้อมูลลง Google Sheet
 
 ## หน้าเว็บ
 
 - `/` — หน้าแรก
-- `/onboarding` — เช็คลิสต์รอเริ่มงาน / เอกสาร (ชีต `แจ้งประกัน - แจ้งเข้า`)
-- `/interview` — รายชื่อส่งสัมภาษณ์ (ชีต `ส่งสัมภาษณ์`)
+- `/onboarding` — เช็คลิสต์รอเริ่มงาน / เอกสาร
+- `/interview` — รายชื่อส่งสัมภาษณ์
 
-## Env
+## Env (Vercel / `.env.local`)
 
 ```env
 GOOGLE_SERVICE_ACCOUNT_EMAIL=
@@ -20,10 +22,10 @@ GOOGLE_CHECKLIST_SHEET_ID=
 ## สร้าง Sheet ใหม่
 
 ```bash
-curl -X POST http://localhost:3000/api/setup -H "Content-Type: application/json" -d "{\"action\":\"create\"}"
+curl -X POST https://YOUR-VERCEL-URL/api/setup -H "Content-Type: application/json" -d "{\"action\":\"create\"}"
 ```
 
-คัดลอก `spreadsheetId` ไปใส่ `GOOGLE_CHECKLIST_SHEET_ID` แล้วแชร์ Sheet ให้ Service Account
+ใส่ `spreadsheetId` ใน `GOOGLE_CHECKLIST_SHEET_ID` แล้วแชร์ Sheet ให้ Service Account (Editor)
 
 ## พัฒนา
 
