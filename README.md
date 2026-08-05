@@ -1,43 +1,33 @@
-# Employee Checklist
+# เช็คลิสต์เอกสารพนักงานเริ่มงาน
 
-ระบบเช็คลิสต์พนักงานรอเริ่มงาน เอกสารติดตามสถานะ และรายชื่อส่งสัมภาษณ์  
-Frontend → API → Google Sheets
+Next.js app สำหรับกรอก/ติ๊กเช็คลิสต์เอกสารพนักงานรอเริ่มงาน และรายชื่อส่งสัมภาษณ์  
+เก็บข้อมูลลง **Google Sheet** (โครงเหมือนชีตอ้างอิง Data LBA)
 
 ## หน้าเว็บ
 
 - `/` — หน้าแรก
-- `/interview` — รายชื่อส่งสัมภาษณ์
-- `/onboarding` — รอเริ่มงาน + เช็คลิสต์เอกสาร
+- `/onboarding` — เช็คลิสต์รอเริ่มงาน / เอกสาร (ชีต `แจ้งประกัน - แจ้งเข้า`)
+- `/interview` — รายชื่อส่งสัมภาษณ์ (ชีต `ส่งสัมภาษณ์`)
 
-## สร้าง Google Sheet ใหม่ (โครงเหมือนอ้างอิง)
-
-1. สร้าง Service Account บน Google Cloud แล้วเปิด **Google Sheets API** + **Google Drive API**
-2. ใส่ค่าใน `.env.local`:
+## Env
 
 ```env
-GOOGLE_SERVICE_ACCOUNT_EMAIL=...
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_PRIVATE_KEY=
+GOOGLE_CHECKLIST_SHEET_ID=
 ```
 
-3. รันแอปแล้วเรียกสร้าง Sheet:
+## สร้าง Sheet ใหม่
 
 ```bash
 curl -X POST http://localhost:3000/api/setup -H "Content-Type: application/json" -d "{\"action\":\"create\"}"
 ```
 
-4. คัดลอก `spreadsheetId` จาก response ไปใส่ `GOOGLE_CHECKLIST_SHEET_ID`
-5. แชร์ Sheet ให้ Service Account เป็น **Editor**
-6. Restart `npm run dev`
+คัดลอก `spreadsheetId` ไปใส่ `GOOGLE_CHECKLIST_SHEET_ID` แล้วแชร์ Sheet ให้ Service Account
 
-แท็บที่จะถูกสร้าง:
-- `ส่งสัมภาษณ์`
-- `แจ้งประกัน - แจ้งเข้า`
-
-## รันบนเครื่อง
+## พัฒนา
 
 ```bash
 npm install
 npm run dev
 ```
-
-เปิด http://localhost:3000

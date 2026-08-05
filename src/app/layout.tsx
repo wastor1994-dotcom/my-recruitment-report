@@ -9,8 +9,8 @@ const noto = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "Employee Checklist",
-  description: "เช็คลิสต์รอเริ่มงาน เอกสาร และรายชื่อส่งสัมภาษณ์",
+  title: "เช็คลิสต์เอกสารพนักงานเริ่มงาน",
+  description: "ติดตามเอกสารและสถานะพนักงานที่รอเริ่มงาน",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
