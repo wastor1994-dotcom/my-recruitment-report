@@ -8,7 +8,7 @@ export default function OnboardingPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="mb-2 text-2xl font-bold text-red-800">รอเริ่มงาน & เช็คลิสต์เอกสาร</h1>
         <p className="mb-6 text-sm text-slate-600">
-          ติดตามสถานะพนักงานและติ๊กเอกสาร — บันทึกลง Google Sheet แท็บ &quot;แจ้งประกัน - แจ้งเข้า&quot;
+          ติดตามสถานะพนักงานและติ๊กเอกสาร — บันทึกลง Excel บน SharePoint แท็บ &quot;แจ้งประกัน - แจ้งเข้า&quot;
         </p>
         <OnboardingPageClient />
       </main>

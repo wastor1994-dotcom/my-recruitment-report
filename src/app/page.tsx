@@ -10,8 +10,8 @@ export default function HomePage() {
           เช็คลิสต์เอกสารพนักงานเริ่มงาน
         </h1>
         <p className="mt-3 text-slate-700">
-          ติดตามพนักงานที่รอเริ่มงาน ติ๊กเช็คลิสต์เอกสาร และอัปเดตสถานะจากหน้าเว็บ
-          — ข้อมูลบันทึกลง Google Sheet อัตโนมัติ
+          เจ้าหน้าที่กรอกข้อมูลจากหน้าเว็บ — บันทึกลงไฟล์ Excel บน SharePoint
+          (ชีต ส่งสัมภาษณ์ และ แจ้งประกัน - แจ้งเข้า)
         </p>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -37,22 +37,25 @@ export default function HomePage() {
         </div>
 
         <section className="mt-10 rounded-2xl border border-red-100 bg-white p-5 text-sm text-slate-700">
-          <h3 className="font-bold text-red-800">เริ่มใช้งาน</h3>
+          <h3 className="font-bold text-red-800">ตั้งค่า SharePoint (Azure AD)</h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5">
             <li>
-              ตั้งค่า Service Account ใน <code className="text-red-700">.env.local</code> /
-              Vercel: <code className="text-red-700">GOOGLE_SERVICE_ACCOUNT_EMAIL</code>,{" "}
-              <code className="text-red-700">GOOGLE_PRIVATE_KEY</code>
+              สร้าง App Registration ใน Azure Portal → ใส่{" "}
+              <code className="text-red-700">AZURE_TENANT_ID</code>,{" "}
+              <code className="text-red-700">AZURE_CLIENT_ID</code>,{" "}
+              <code className="text-red-700">AZURE_CLIENT_SECRET</code>
             </li>
             <li>
-              สร้าง Sheet ใหม่: เรียก{" "}
-              <code className="text-red-700">POST /api/setup</code> ด้วย{" "}
-              <code>{`{ "action": "create" }`}</code>
+              Application permissions:{" "}
+              <code className="text-red-700">Sites.ReadWrite.All</code>,{" "}
+              <code className="text-red-700">Files.ReadWrite.All</code> → Admin consent
             </li>
             <li>
-              ใส่ <code className="text-red-700">GOOGLE_CHECKLIST_SHEET_ID</code> แล้ว redeploy
+              ใส่ลิงก์ไฟล์ Excel ใน <code className="text-red-700">SHAREPOINT_FILE_URL</code>
             </li>
-            <li>แชร์ Sheet ให้ Service Account เป็น Editor</li>
+            <li>
+              ตรวจการเชื่อมต่อ: เปิด <code className="text-red-700">/api/setup</code>
+            </li>
           </ol>
         </section>
       </main>
