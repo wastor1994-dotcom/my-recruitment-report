@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ClientSecretCredential } from "@azure/identity";
+import { google } from "googleapis";
 import {
   CHECKLIST_FIELDS,
   type ChecklistFlags,
@@ -44,12 +44,33 @@ export const ONBOARDING_HEADERS = [
   "รายละเอียดเสื้อ",
 ] as const;
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
+const DEFAULT_OWNER_EMAIL = "siamrajlba@gmail.com";
 
 function mustEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing env var: ${name}`);
   return value;
+}
+
+function getSpreadsheetId() {
+  return mustEnv("GOOGLE_CHECKLIST_SHEET_ID");
+}
+
+function getOwnerEmail() {
+  return process.env.GOOGLE_SHEET_OWNER_EMAIL?.trim() || DEFAULT_OWNER_EMAIL;
+}
+
+function getAuth() {
+  const clientEmail = mustEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
+  const privateKey = mustEnv("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n");
+  return new google.auth.JWT({
+    email: clientEmail,
+    key: privateKey,
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+    ],
+  });
 }
 
 function cell(v: unknown): string {
@@ -77,113 +98,9 @@ function colLetter(indexZeroBased: number): string {
   return s;
 }
 
-/** Encode SharePoint sharing URL for Graph /shares endpoint */
-export function encodeSharingUrl(url: string): string {
-  const base64 = Buffer.from(url, "utf8")
-    .toString("base64")
-    .replace(/=+$/g, "")
-    .replace(/\//g, "_")
-    .replace(/\+/g, "-");
-  return `u!${base64}`;
-}
-
-async function getAccessToken(): Promise<string> {
-  const credential = new ClientSecretCredential(
-    mustEnv("AZURE_TENANT_ID"),
-    mustEnv("AZURE_CLIENT_ID"),
-    mustEnv("AZURE_CLIENT_SECRET"),
-  );
-  const token = await credential.getToken("https://graph.microsoft.com/.default");
-  if (!token?.token) throw new Error("ไม่สามารถขอ access token จาก Azure ได้");
-  return token.token;
-}
-
-async function graphFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getAccessToken();
-  const res = await fetch(`${GRAPH}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Microsoft Graph ${res.status}: ${body.slice(0, 500)}`);
-  }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
-}
-
-type DriveItem = { id: string; name?: string; webUrl?: string; parentReference?: { driveId?: string } };
-
-async function resolveWorkbookItem(): Promise<{ driveId: string; itemId: string; webUrl?: string; name?: string }> {
-  const driveId = process.env.SHAREPOINT_DRIVE_ID?.trim();
-  const itemId = process.env.SHAREPOINT_ITEM_ID?.trim();
-  if (driveId && itemId) {
-    return { driveId, itemId };
-  }
-
-  const fileUrl = process.env.SHAREPOINT_FILE_URL?.trim() || mustEnv("SHAREPOINT_FILE_URL");
-  const shareId = encodeSharingUrl(fileUrl);
-  const item = await graphFetch<DriveItem>(`/shares/${shareId}/driveItem`);
-  const resolvedDriveId = item.parentReference?.driveId;
-  if (!item.id || !resolvedDriveId) {
-    throw new Error("ไม่พบไฟล์ Excel จาก SHAREPOINT_FILE_URL");
-  }
-  return { driveId: resolvedDriveId, itemId: item.id, webUrl: item.webUrl, name: item.name };
-}
-
-function workbookBase(driveId: string, itemId: string) {
-  return `/drives/${driveId}/items/${itemId}/workbook`;
-}
-
-async function getWorksheetId(driveId: string, itemId: string, sheetName: string): Promise<string> {
-  const sheets = await graphFetch<{ value?: Array<{ id?: string; name?: string }> }>(
-    `${workbookBase(driveId, itemId)}/worksheets`,
-  );
-  const found = (sheets.value ?? []).find((s) => s.name === sheetName);
-  if (!found?.id) {
-    const names = (sheets.value ?? []).map((s) => s.name).filter(Boolean).join(", ");
-    throw new Error(`ไม่พบแท็บ "${sheetName}" — มีแท็บ: ${names}`);
-  }
-  return found.id;
-}
-
-function worksheetPath(driveId: string, itemId: string, worksheetId: string) {
-  return `${workbookBase(driveId, itemId)}/worksheets/${worksheetId}`;
-}
-
-type UsedRange = { values?: unknown[][]; rowCount?: number; columnCount?: number; address?: string };
-
-async function getUsedRange(driveId: string, itemId: string, sheetName: string): Promise<UsedRange> {
-  const wsId = await getWorksheetId(driveId, itemId, sheetName);
-  return graphFetch<UsedRange>(`${worksheetPath(driveId, itemId, wsId)}/usedRange(valuesOnly=true)`);
-}
-
-async function writeRange(
-  driveId: string,
-  itemId: string,
-  sheetName: string,
-  address: string,
-  values: unknown[][],
-) {
-  const wsId = await getWorksheetId(driveId, itemId, sheetName);
-  await graphFetch(`${worksheetPath(driveId, itemId, wsId)}/range(address='${address}')`, {
-    method: "PATCH",
-    body: JSON.stringify({ values }),
-  });
-}
-
-function findHeaderRowIndex(matrix: unknown[][], requiredHeaders: string[]): number {
-  const need = requiredHeaders.map((h) => h.toLowerCase());
-  for (let i = 0; i < Math.min(8, matrix.length); i++) {
-    const row = (matrix[i] ?? []).map((c) => cell(c).toLowerCase());
-    const hit = need.filter((h) => row.some((c) => c.includes(h) || h.includes(c))).length;
-    if (hit >= Math.min(2, need.length)) return i;
-  }
-  return 0;
+function quoteRange(sheetName: string, range: string) {
+  const escaped = sheetName.replace(/'/g, "''");
+  return `'${escaped}'!${range}`;
 }
 
 function mapInterview(row: string[], rowNumber: number): InterviewCandidate {
@@ -263,115 +180,185 @@ function onboardingToRow(input: OnboardingInput): string[] {
   ];
 }
 
-export async function probeSharePointFile() {
-  const file = await resolveWorkbookItem();
-  const sheets = await graphFetch<{ value?: Array<{ name?: string }> }>(
-    `${workbookBase(file.driveId, file.itemId)}/worksheets`,
-  );
+async function shareWithOwner(spreadsheetId: string) {
+  const ownerEmail = getOwnerEmail();
+  const auth = getAuth();
+  const drive = google.drive({ version: "v3", auth });
+  await drive.permissions.create({
+    fileId: spreadsheetId,
+    sendNotificationEmail: false,
+    requestBody: {
+      type: "user",
+      role: "writer",
+      emailAddress: ownerEmail,
+    },
+  });
+}
+
+async function getSheetTitles(spreadsheetId: string): Promise<string[]> {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  return (meta.data.sheets ?? [])
+    .map((s) => s.properties?.title)
+    .filter((t): t is string => Boolean(t));
+}
+
+async function ensureTabHeaders(spreadsheetId: string, sheetName: string, headers: readonly string[]) {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: quoteRange(sheetName, "1:1"),
+  });
+  const current = resp.data.values?.[0] ?? [];
+  if (current.length >= headers.length && headers.every((h, i) => cell(current[i]) === h)) {
+    return;
+  }
+  const lastCol = colLetter(headers.length - 1);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: quoteRange(sheetName, `A1:${lastCol}1`),
+    valueInputOption: "RAW",
+    requestBody: { values: [headers as unknown as string[]] },
+  });
+}
+
+/** สร้าง Google Sheet ใหม่ พร้อมแท็บและหัวคอลัมน์ */
+export async function createChecklistSpreadsheet() {
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const created = await sheets.spreadsheets.create({
+    requestBody: {
+      properties: { title: "Employee Checklist" },
+      sheets: [
+        { properties: { title: SHEET_INTERVIEW } },
+        { properties: { title: SHEET_ONBOARDING } },
+      ],
+    },
+  });
+
+  const spreadsheetId = created.data.spreadsheetId;
+  if (!spreadsheetId) throw new Error("สร้าง Google Sheet ไม่สำเร็จ");
+
+  await ensureTabHeaders(spreadsheetId, SHEET_INTERVIEW, INTERVIEW_HEADERS);
+  await ensureTabHeaders(spreadsheetId, SHEET_ONBOARDING, ONBOARDING_HEADERS);
+  await shareWithOwner(spreadsheetId);
+
+  const url = created.data.spreadsheetUrl ?? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
   return {
-    driveId: file.driveId,
-    itemId: file.itemId,
-    name: file.name,
-    webUrl: file.webUrl,
-    worksheets: (sheets.value ?? []).map((s) => s.name).filter(Boolean),
+    spreadsheetId,
+    url,
+    ownerEmail: getOwnerEmail(),
+    worksheets: [SHEET_INTERVIEW, SHEET_ONBOARDING],
   };
 }
 
-/** ตรวจว่าเชื่อม SharePoint Excel ได้ และมีแท็บที่ต้องใช้ */
+export async function probeSpreadsheet() {
+  const spreadsheetId = getSpreadsheetId();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId });
+  return {
+    spreadsheetId,
+    name: meta.data.properties?.title,
+    url: meta.data.spreadsheetUrl ?? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+    ownerEmail: getOwnerEmail(),
+    worksheets: await getSheetTitles(spreadsheetId),
+  };
+}
+
+/** ตรวจว่าเชื่อม Google Sheet ได้ และมีแท็บที่ต้องใช้ */
 export async function ensureSheetHeaders() {
-  const info = await probeSharePointFile();
-  const names = new Set(info.worksheets);
-  const interviewName = process.env.SHAREPOINT_INTERVIEW_SHEET?.trim() || SHEET_INTERVIEW;
-  const onboardingName = process.env.SHAREPOINT_ONBOARDING_SHEET?.trim() || SHEET_ONBOARDING;
-  if (!names.has(interviewName)) {
-    throw new Error(`ไม่พบแท็บ "${interviewName}" ในไฟล์ Excel — มีแท็บ: ${[...names].join(", ")}`);
+  const spreadsheetId = getSpreadsheetId();
+  const titles = await getSheetTitles(spreadsheetId);
+  const names = new Set(titles);
+  if (!names.has(SHEET_INTERVIEW)) {
+    throw new Error(`ไม่พบแท็บ "${SHEET_INTERVIEW}" — มีแท็บ: ${[...names].join(", ")}`);
   }
-  if (!names.has(onboardingName)) {
-    throw new Error(`ไม่พบแท็บ "${onboardingName}" ในไฟล์ Excel — มีแท็บ: ${[...names].join(", ")}`);
+  if (!names.has(SHEET_ONBOARDING)) {
+    throw new Error(`ไม่พบแท็บ "${SHEET_ONBOARDING}" — มีแท็บ: ${[...names].join(", ")}`);
   }
-  return info;
-}
-
-function interviewSheetName() {
-  return process.env.SHAREPOINT_INTERVIEW_SHEET?.trim() || SHEET_INTERVIEW;
-}
-
-function onboardingSheetName() {
-  return process.env.SHAREPOINT_ONBOARDING_SHEET?.trim() || SHEET_ONBOARDING;
+  await ensureTabHeaders(spreadsheetId, SHEET_INTERVIEW, INTERVIEW_HEADERS);
+  await ensureTabHeaders(spreadsheetId, SHEET_ONBOARDING, ONBOARDING_HEADERS);
+  return probeSpreadsheet();
 }
 
 export async function listInterviewCandidates(): Promise<InterviewCandidate[]> {
-  const file = await resolveWorkbookItem();
-  const used = await getUsedRange(file.driveId, file.itemId, interviewSheetName());
-  const matrix = used.values ?? [];
-  if (!matrix.length) return [];
-  const headerIdx = findHeaderRowIndex(matrix, ["ชื่อ", "นามสกุล", "ตำแหน่ง"]);
-  const data = matrix.slice(headerIdx + 1);
-  return data
-    .map((row, i) => mapInterview((row ?? []).map(cell), headerIdx + 2 + i))
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_INTERVIEW, "A2:K"),
+  });
+  return (resp.data.values ?? [])
+    .map((row, i) => mapInterview(row.map(cell), i + 2))
     .filter((r) => r.first_name || r.last_name);
 }
 
 export async function appendInterviewCandidate(input: InterviewInput) {
-  const file = await resolveWorkbookItem();
-  const sheet = interviewSheetName();
-  const used = await getUsedRange(file.driveId, file.itemId, sheet);
-  const matrix = used.values ?? [];
-  const headerIdx = findHeaderRowIndex(matrix, ["ชื่อ", "นามสกุล"]);
-  const nextRow = Math.max(headerIdx + 2, (matrix.length || headerIdx + 1) + 1);
-  // Graph address is 1-based excel row; if matrix has empty trailing, usedRange rowCount is safer
-  const excelRow = (used.rowCount ?? matrix.length) + 1;
-  const row = Math.max(nextRow, excelRow);
-  await writeRange(file.driveId, file.itemId, sheet, `A${row}:K${row}`, [interviewToRow(input)]);
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_INTERVIEW, "A:K"),
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [interviewToRow(input)] },
+  });
 }
 
 export async function updateInterviewCandidate(rowNumber: number, input: InterviewInput) {
-  const file = await resolveWorkbookItem();
-  await writeRange(
-    file.driveId,
-    file.itemId,
-    interviewSheetName(),
-    `A${rowNumber}:K${rowNumber}`,
-    [interviewToRow(input)],
-  );
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_INTERVIEW, `A${rowNumber}:K${rowNumber}`),
+    valueInputOption: "RAW",
+    requestBody: { values: [interviewToRow(input)] },
+  });
 }
 
 export async function listOnboardingEmployees(): Promise<OnboardingEmployee[]> {
-  const file = await resolveWorkbookItem();
-  const used = await getUsedRange(file.driveId, file.itemId, onboardingSheetName());
-  const matrix = used.values ?? [];
-  if (!matrix.length) return [];
-  const headerIdx = findHeaderRowIndex(matrix, ["ชื่อ", "นามสกุล", "วันที่เริ่มงาน"]);
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
   const lastCol = colLetter(ONBOARDING_HEADERS.length - 1);
-  void lastCol;
-  const data = matrix.slice(headerIdx + 1);
-  return data
-    .map((row, i) => mapOnboarding((row ?? []).map(cell), headerIdx + 2 + i))
+  const resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_ONBOARDING, `A2:${lastCol}`),
+  });
+  return (resp.data.values ?? [])
+    .map((row, i) => mapOnboarding(row.map(cell), i + 2))
     .filter((r) => r.first_name || r.last_name);
 }
 
 export async function appendOnboardingEmployee(input: OnboardingInput) {
-  const file = await resolveWorkbookItem();
-  const sheet = onboardingSheetName();
-  const used = await getUsedRange(file.driveId, file.itemId, sheet);
-  const matrix = used.values ?? [];
-  const headerIdx = findHeaderRowIndex(matrix, ["ชื่อ", "นามสกุล"]);
-  const excelRow = (used.rowCount ?? matrix.length) + 1;
-  const nextRow = Math.max(headerIdx + 2, excelRow);
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
   const lastCol = colLetter(ONBOARDING_HEADERS.length - 1);
-  await writeRange(file.driveId, file.itemId, sheet, `A${nextRow}:${lastCol}${nextRow}`, [
-    onboardingToRow(input),
-  ]);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_ONBOARDING, `A:${lastCol}`),
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [onboardingToRow(input)] },
+  });
 }
 
 export async function updateOnboardingEmployee(rowNumber: number, input: OnboardingInput) {
-  const file = await resolveWorkbookItem();
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
   const lastCol = colLetter(ONBOARDING_HEADERS.length - 1);
-  await writeRange(
-    file.driveId,
-    file.itemId,
-    onboardingSheetName(),
-    `A${rowNumber}:${lastCol}${rowNumber}`,
-    [onboardingToRow(input)],
-  );
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: getSpreadsheetId(),
+    range: quoteRange(SHEET_ONBOARDING, `A${rowNumber}:${lastCol}${rowNumber}`),
+    valueInputOption: "RAW",
+    requestBody: { values: [onboardingToRow(input)] },
+  });
 }

@@ -1,6 +1,6 @@
 # staff-onboarding-checklist
 
-**เช็คลิสต์เอกสารพนักงานเริ่มงาน** — กรอกจากเว็บ บันทึกลง **Excel บน SharePoint**
+**เช็คลิสต์เอกสารพนักงานเริ่มงาน** — กรอกจากเว็บ บันทึกลง **Google Sheet** (บัญชี siamrajlba@gmail.com)
 
 ## หน้าเว็บ
 
@@ -8,25 +8,27 @@
 - `/onboarding` — เช็คลิสต์รอเริ่มงาน / เอกสาร (แท็บ `แจ้งประกัน - แจ้งเข้า`)
 - `/interview` — รายชื่อส่งสัมภาษณ์ (แท็บ `ส่งสัมภาษณ์`)
 
-## Env
+## Env (`.env.local`)
 
 ```env
-AZURE_TENANT_ID=
-AZURE_CLIENT_ID=
-AZURE_CLIENT_SECRET=
-SHAREPOINT_FILE_URL=https://siamraj-my.sharepoint.com/:x:/p/...
-SHAREPOINT_INTERVIEW_SHEET=ส่งสัมภาษณ์
-SHAREPOINT_ONBOARDING_SHEET=แจ้งประกัน - แจ้งเข้า
+GOOGLE_SERVICE_ACCOUNT_EMAIL=xxx@xxx.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_CHECKLIST_SHEET_ID=
+GOOGLE_SHEET_OWNER_EMAIL=siamrajlba@gmail.com
 ```
 
-## Azure App Registration
+## ตั้งค่า Google Cloud (ฟรี)
 
-1. Azure Portal → App registrations → New
-2. Certificates & secrets → New client secret
-3. API permissions → Microsoft Graph → Application:
-   - `Sites.ReadWrite.All`
-   - `Files.ReadWrite.All`
-4. Grant admin consent
+1. Login [Google Cloud Console](https://console.cloud.google.com/) ด้วย **siamrajlba@gmail.com**
+2. สร้างโปรเจกต์ → เปิด **Google Sheets API** และ **Google Drive API**
+3. **Credentials → Service Account → Keys → JSON** ดาวน์โหลดแล้วใส่ใน `.env.local`
+4. รัน `npm run dev` แล้วสร้าง Sheet:
+
+```powershell
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/setup -ContentType "application/json" -Body '{"action":"create"}'
+```
+
+5. ใส่ `spreadsheetId` ที่ได้ใน `GOOGLE_CHECKLIST_SHEET_ID` แล้ว restart dev server
 
 ## พัฒนา
 
