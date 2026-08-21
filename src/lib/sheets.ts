@@ -1,5 +1,6 @@
 import "server-only";
 
+import { existsSync } from "node:fs";
 import { google } from "googleapis";
 import {
   CHECKLIST_FIELDS,
@@ -9,6 +10,7 @@ import {
   type OnboardingEmployee,
   type OnboardingInput,
 } from "./types";
+import { calcWaitDays } from "./interviewDays";
 
 export const SHEET_INTERVIEW = "ส่งสัมภาษณ์";
 export const SHEET_ONBOARDING = "แจ้งประกัน - แจ้งเข้า";
@@ -25,6 +27,10 @@ export const INTERVIEW_HEADERS = [
   "ส่งเมลล์ สัมภาษณ์ครั้งที่ 1",
   "วันสัมภาษณ์",
   "หมายเหตุ",
+  "ระยะเวลา (วัน)",
+  "Code site",
+  "ประเภทอัตรา",
+  "สถานะสัมภาษณ์",
 ] as const;
 
 export const ONBOARDING_HEADERS = [
@@ -61,6 +67,18 @@ function getOwnerEmail() {
 }
 
 function getAuth() {
+  const jsonPath =
+    process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim() ||
+    "employee-checklist-506007-f7c1939bf132.json";
+  if (jsonPath && existsSync(jsonPath)) {
+    return new google.auth.GoogleAuth({
+      keyFile: jsonPath,
+      scopes: [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+      ],
+    });
+  }
   const clientEmail = mustEnv("GOOGLE_SERVICE_ACCOUNT_EMAIL");
   const privateKey = mustEnv("GOOGLE_PRIVATE_KEY").replace(/\\n/g, "\n");
   return new google.auth.JWT({
@@ -104,6 +122,9 @@ function quoteRange(sheetName: string, range: string) {
 }
 
 function mapInterview(row: string[], rowNumber: number): InterviewCandidate {
+  const email_sent_date = cell(row[8]);
+  const interview_date = cell(row[9]);
+  const computed = calcWaitDays(email_sent_date, interview_date);
   return {
     row_number: rowNumber,
     seq_no: cell(row[0]),
@@ -114,13 +135,19 @@ function mapInterview(row: string[], rowNumber: number): InterviewCandidate {
     unit: cell(row[5]),
     channel: cell(row[6]),
     officer: cell(row[7]),
-    email_sent_date: cell(row[8]),
-    interview_date: cell(row[9]),
+    email_sent_date,
+    interview_date,
     note: cell(row[10]),
+    wait_days: computed.days,
+    wait_running: computed.running,
+    site_code: cell(row[12]),
+    replace_of: cell(row[13]),
+    interview_status: cell(row[14]),
   };
 }
 
 function interviewToRow(input: InterviewInput): string[] {
+  const computed = calcWaitDays(input.email_sent_date, input.interview_date);
   return [
     input.seq_no,
     input.first_name,
@@ -133,6 +160,10 @@ function interviewToRow(input: InterviewInput): string[] {
     input.email_sent_date,
     input.interview_date,
     input.note,
+    computed.days == null ? "" : String(computed.days),
+    input.site_code,
+    input.replace_of,
+    input.interview_status,
   ];
 }
 
@@ -288,13 +319,30 @@ export async function listInterviewCandidates(): Promise<InterviewCandidate[]> {
   await ensureSheetHeaders();
   const auth = getAuth();
   const sheets = google.sheets({ version: "v4", auth });
+  const spreadsheetId = getSpreadsheetId();
   const resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: getSpreadsheetId(),
-    range: quoteRange(SHEET_INTERVIEW, "A2:K"),
+    spreadsheetId,
+    range: quoteRange(SHEET_INTERVIEW, "A2:O"),
   });
-  return (resp.data.values ?? [])
+  const items = (resp.data.values ?? [])
     .map((row, i) => mapInterview(row.map(cell), i + 2))
     .filter((r) => r.first_name || r.last_name);
+
+  // อัปเดตคอลัมน์ระยะเวลาใน Sheet สำหรับรายการที่ยังนับอยู่ (ยังไม่มีวันสัมภาษณ์)
+  const updates = items
+    .filter((r) => r.wait_running && r.wait_days != null)
+    .map((r) => ({
+      range: quoteRange(SHEET_INTERVIEW, `L${r.row_number}`),
+      values: [[String(r.wait_days)]],
+    }));
+  if (updates.length) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: { valueInputOption: "RAW", data: updates },
+    });
+  }
+
+  return items;
 }
 
 export async function appendInterviewCandidate(input: InterviewInput) {
@@ -303,7 +351,7 @@ export async function appendInterviewCandidate(input: InterviewInput) {
   const sheets = google.sheets({ version: "v4", auth });
   await sheets.spreadsheets.values.append({
     spreadsheetId: getSpreadsheetId(),
-    range: quoteRange(SHEET_INTERVIEW, "A:K"),
+    range: quoteRange(SHEET_INTERVIEW, "A:O"),
     valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
     requestBody: { values: [interviewToRow(input)] },
@@ -316,7 +364,7 @@ export async function updateInterviewCandidate(rowNumber: number, input: Intervi
   const sheets = google.sheets({ version: "v4", auth });
   await sheets.spreadsheets.values.update({
     spreadsheetId: getSpreadsheetId(),
-    range: quoteRange(SHEET_INTERVIEW, `A${rowNumber}:K${rowNumber}`),
+    range: quoteRange(SHEET_INTERVIEW, `A${rowNumber}:O${rowNumber}`),
     valueInputOption: "RAW",
     requestBody: { values: [interviewToRow(input)] },
   });
@@ -361,4 +409,121 @@ export async function updateOnboardingEmployee(rowNumber: number, input: Onboard
     valueInputOption: "RAW",
     requestBody: { values: [onboardingToRow(input)] },
   });
+}
+
+/** แทนที่ข้อมูลทั้งหมดในแท็บส่งสัมภาษณ์ (ใช้ตอนย้ายจาก SharePoint) */
+export async function replaceAllInterviewCandidates(items: InterviewInput[]) {
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const spreadsheetId = getSpreadsheetId();
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: quoteRange(SHEET_INTERVIEW, "A2:O"),
+  });
+  if (!items.length) return;
+  const values = items.map(interviewToRow);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: quoteRange(SHEET_INTERVIEW, `A2:O${values.length + 1}`),
+    valueInputOption: "RAW",
+    requestBody: { values },
+  });
+}
+
+/** แทนที่ข้อมูลทั้งหมดในแท็บแจ้งประกัน - แจ้งเข้า (ใช้ตอนย้ายจาก SharePoint) */
+export async function replaceAllOnboardingEmployees(items: OnboardingInput[]) {
+  await ensureSheetHeaders();
+  const auth = getAuth();
+  const sheets = google.sheets({ version: "v4", auth });
+  const spreadsheetId = getSpreadsheetId();
+  const lastCol = colLetter(ONBOARDING_HEADERS.length - 1);
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: quoteRange(SHEET_ONBOARDING, `A2:${lastCol}`),
+  });
+  if (!items.length) return;
+  const values = items.map(onboardingToRow);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: quoteRange(SHEET_ONBOARDING, `A2:${lastCol}${values.length + 1}`),
+    valueInputOption: "RAW",
+    requestBody: { values },
+  });
+}
+
+function samePerson(a: { first_name: string; last_name: string; phone: string }, b: {
+  first_name: string;
+  last_name: string;
+  phone: string;
+}) {
+  const fn = a.first_name.trim().toLowerCase();
+  const ln = a.last_name.trim().toLowerCase();
+  if (!fn || !ln) return false;
+  if (fn !== b.first_name.trim().toLowerCase() || ln !== b.last_name.trim().toLowerCase()) {
+    return false;
+  }
+  const ap = a.phone.trim();
+  const bp = b.phone.trim();
+  if (ap && bp) return ap === bp;
+  return true;
+}
+
+function nextOnboardingSeq(rows: { seq_no: string }[]) {
+  let max = 0;
+  for (const row of rows) {
+    const n = Number.parseInt(String(row.seq_no).trim(), 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return String(max + 1);
+}
+
+/**
+ * เมื่อสถานะสัมภาษณ์เป็น รอเรียนงาน / รอเริ่มงาน
+ * ให้สร้างหรืออัปเดตรายการในหน้าเช็คลิสต์โดยไม่ต้องกรอกซ้ำ
+ */
+export async function upsertOnboardingFromInterview(input: InterviewInput) {
+  const existing = await listOnboardingEmployees();
+  const found = existing.find((row) => samePerson(row, input));
+  const statusNote = input.interview_status.trim();
+
+  if (found) {
+    const next: OnboardingInput = {
+      seq_no: found.seq_no,
+      first_name: input.first_name,
+      last_name: input.last_name,
+      position: input.position,
+      unit: input.unit,
+      site_code: input.site_code || found.site_code,
+      start_date: found.start_date,
+      responsible: found.responsible,
+      checklist: found.checklist,
+      note: found.note.includes(statusNote) ? found.note : [found.note, statusNote].filter(Boolean).join(" | "),
+      phone: input.phone || found.phone,
+      replace_of: input.replace_of || found.replace_of,
+      uniform: found.uniform,
+      uniform_note: found.uniform_note,
+    };
+    await updateOnboardingEmployee(found.row_number, next);
+    return { action: "updated" as const, row_number: found.row_number };
+  }
+
+  const created: OnboardingInput = {
+    seq_no: nextOnboardingSeq(existing),
+    first_name: input.first_name,
+    last_name: input.last_name,
+    position: input.position,
+    unit: input.unit,
+    site_code: input.site_code,
+    start_date: "",
+    responsible: input.officer,
+    checklist: emptyChecklist(),
+    note: statusNote,
+    phone: input.phone,
+    replace_of: input.replace_of,
+    uniform: false,
+    uniform_note: "",
+  };
+  await appendOnboardingEmployee(created);
+  return { action: "created" as const };
 }

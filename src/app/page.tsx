@@ -21,8 +21,7 @@ export default function HomePage() {
           >
             <h2 className="text-xl font-bold text-red-800">เช็คลิสต์รอเริ่มงาน</h2>
             <p className="mt-2 text-sm text-slate-600">
-              รายชื่อพนักงาน วันที่เริ่มงาน และเช็คลิสต์เอกสาร
-              (คอนเฟิร์มลูกค้า, แจ้งประกัน, สัญญาจ้าง, ใบทิพย ฯลฯ)
+              รายชื่อจากหน้าส่งสัมภาษณ์ (รอเรียนงาน / รอเริ่มงาน) และติ๊กเช็คลิสต์เอกสาร
             </p>
           </Link>
           <Link
@@ -37,25 +36,19 @@ export default function HomePage() {
         </div>
 
         <section className="mt-10 rounded-2xl border border-red-100 bg-white p-5 text-sm text-slate-700">
-          <h3 className="font-bold text-red-800">ตั้งค่า Google Sheet (siamrajlba@gmail.com)</h3>
+          <h3 className="font-bold text-red-800">ย้ายข้อมูลจาก SharePoint → Google Sheet</h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5">
             <li>
-              Login Google Cloud Console ด้วย <strong>siamrajlba@gmail.com</strong> → สร้าง Service Account
-              → ใส่ <code className="text-red-700">GOOGLE_SERVICE_ACCOUNT_EMAIL</code> และ{" "}
-              <code className="text-red-700">GOOGLE_PRIVATE_KEY</code> ใน <code className="text-red-700">.env.local</code>
+              ใส่ Azure + Google credentials ใน <code className="text-red-700">.env.local</code>
             </li>
             <li>
-              เปิดใช้ <strong>Google Sheets API</strong> และ <strong>Google Drive API</strong>
+              ตรวจไฟล์ต้นทาง: <code className="text-red-700">GET /api/migrate</code>
             </li>
             <li>
-              รันแอปแล้วสร้าง Sheet ใหม่:{" "}
-              <code className="text-red-700">POST /api/setup</code> body{" "}
-              <code className="text-red-700">{`{"action":"create"}`}</code> → ใส่{" "}
-              <code className="text-red-700">GOOGLE_CHECKLIST_SHEET_ID</code>
+              ย้ายข้อมูล: <code className="text-red-700">POST /api/migrate</code> body{" "}
+              <code className="text-red-700">{`{"action":"run","createSheet":true}`}</code>
             </li>
-            <li>
-              ตรวจการเชื่อมต่อ: เปิด <code className="text-red-700">/api/setup</code>
-            </li>
+            <li>ใส่ <code className="text-red-700">GOOGLE_CHECKLIST_SHEET_ID</code> ที่ได้ แล้ว restart</li>
           </ol>
         </section>
       </main>

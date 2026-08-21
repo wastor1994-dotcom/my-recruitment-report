@@ -17,6 +17,33 @@ export type ChecklistKey = (typeof CHECKLIST_FIELDS)[number]["key"];
 
 export type ChecklistFlags = Record<ChecklistKey, boolean>;
 
+export const INTERVIEW_STATUS_OPTIONS = [
+  "รอเทียบ",
+  "รอเรียนงาน",
+  "รอเริ่มงาน",
+  "ยกเลิกได้งานใหม่",
+  "ยกเลิกติดต่อไม่ได้",
+] as const;
+
+export type InterviewStatus = (typeof INTERVIEW_STATUS_OPTIONS)[number] | "";
+
+/** สถานะที่ต้องส่งต่อไปหน้าเช็คลิสต์เริ่มงาน */
+export const ONBOARDING_LINK_STATUSES = ["รอเรียนงาน", "รอเริ่มงาน"] as const;
+
+export function shouldLinkToOnboarding(status: string) {
+  return (ONBOARDING_LINK_STATUSES as readonly string[]).includes(status.trim());
+}
+
+export const CHANNEL_OPTIONS = [
+  "Jobthai",
+  "JobBKK",
+  "JobsDB",
+  "Facebook",
+  "Tiktok",
+  "พนักงานแนะนำ",
+  "ป้ายประกาศ",
+] as const;
+
 export type OnboardingEmployee = {
   row_number: number;
   seq_no: string;
@@ -43,12 +70,19 @@ export type InterviewCandidate = {
   phone: string;
   position: string;
   unit: string;
+  site_code: string;
+  replace_of: string;
   channel: string;
   officer: string;
   email_sent_date: string;
   interview_date: string;
+  interview_status: string;
   note: string;
+  /** ระยะวันจากวันส่งเมล → วันสัมภาษณ์ (หรือวันนี้ถ้ายังไม่มีวันสัมภาษณ์) */
+  wait_days: number | null;
+  /** true = ยังไม่มีวันสัมภาษณ์ ระยะเวลายังนับต่อ */
+  wait_running: boolean;
 };
 
 export type OnboardingInput = Omit<OnboardingEmployee, "row_number">;
-export type InterviewInput = Omit<InterviewCandidate, "row_number">;
+export type InterviewInput = Omit<InterviewCandidate, "row_number" | "wait_days" | "wait_running">;

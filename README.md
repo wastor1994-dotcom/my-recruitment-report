@@ -30,6 +30,21 @@ Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/setup -ContentType
 
 5. ใส่ `spreadsheetId` ที่ได้ใน `GOOGLE_CHECKLIST_SHEET_ID` แล้ว restart dev server
 
+## ย้ายข้อมูลจาก SharePoint
+
+ไฟล์ต้นทาง: `KPI __ ข้อมูลผ่านกระบวนการ LBA .xlsx`  
+แท็บ: `ส่งสัมภาษณ์`, `แจ้งเข้าประกัน`
+
+```powershell
+# 1) ตรวจไฟล์ SharePoint
+Invoke-RestMethod http://localhost:3000/api/migrate
+
+# 2) ย้ายไป Google Sheet (สร้าง Sheet ใหม่ + แชร์ให้ siamrajlba@gmail.com)
+Invoke-RestMethod -Method POST -Uri http://localhost:3000/api/migrate -ContentType "application/json" -Body '{"action":"run","createSheet":true}'
+```
+
+ใส่ `spreadsheetId` ที่ได้ใน `GOOGLE_CHECKLIST_SHEET_ID` แล้ว restart
+
 ## พัฒนา
 
 ```bash

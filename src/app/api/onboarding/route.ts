@@ -13,6 +13,15 @@ function emptyChecklist(): ChecklistFlags {
   return Object.fromEntries(CHECKLIST_FIELDS.map((f) => [f.key, false])) as ChecklistFlags;
 }
 
+function nextSeqNo(rows: { seq_no: string }[]) {
+  let max = 0;
+  for (const row of rows) {
+    const n = Number.parseInt(String(row.seq_no).trim(), 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return String(max + 1);
+}
+
 export async function GET() {
   try {
     const items = await listOnboardingEmployees();
@@ -46,9 +55,31 @@ export async function POST(req: Request) {
     if (!input.first_name.trim()) {
       return NextResponse.json({ ok: false, error: "กรุณากรอกชื่อ" }, { status: 400 });
     }
+    if (!input.last_name.trim()) {
+      return NextResponse.json({ ok: false, error: "กรุณากรอกนามสกุล" }, { status: 400 });
+    }
+    if (!input.phone.trim()) {
+      return NextResponse.json({ ok: false, error: "กรุณากรอกเบอร์ติดต่อ" }, { status: 400 });
+    }
+    if (!input.position.trim()) {
+      return NextResponse.json({ ok: false, error: "กรุณากรอกตำแหน่ง" }, { status: 400 });
+    }
+    if (!input.unit.trim()) {
+      return NextResponse.json({ ok: false, error: "กรุณากรอกหน่วยงาน" }, { status: 400 });
+    }
+    if (!input.replace_of.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "กรุณาเลือกอัตราใหม่ หรือกรอกชื่อพนักงานที่ลาออกกรณีทดแทน" },
+        { status: 400 },
+      );
+    }
     if (body.row_number && body.row_number >= 2) {
       await updateOnboardingEmployee(body.row_number, input);
     } else {
+      if (!input.seq_no.trim()) {
+        const items = await listOnboardingEmployees();
+        input.seq_no = nextSeqNo(items);
+      }
       await appendOnboardingEmployee(input);
     }
     return NextResponse.json({ ok: true });
